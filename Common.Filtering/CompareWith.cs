@@ -9,6 +9,8 @@
         LessThanOrEqual,
         Contains,
         StartsWith,
-        EndsWith
+        EndsWith,
+        In,
+        NotEquals
     }
 }

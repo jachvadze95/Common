@@ -1,5 +1,6 @@
 ﻿using System.Linq.Expressions;
 using System.Reflection;
+using System.Reflection.Metadata;
 
 namespace Common.Filtering
 {
@@ -27,7 +28,7 @@ namespace Common.Filtering
 
                     var propertyExpression = Expression.Property(parameter, compareToColumn);
                     var constantExpression = Expression.Constant(propertyValue);
-                    var condition = GetComparisonExpression(propertyExpression, constantExpression, comparisonType);
+                    var condition = GetComparisonExpression(propertyExpression, constantExpression, comparisonType, parameter);
 
                     var lambda = Expression.Lambda<Func<TEntity, bool>>(condition, parameter);
                     query = query.Where(lambda);
@@ -37,7 +38,7 @@ namespace Common.Filtering
             return query;
         }
 
-        private static Expression GetComparisonExpression(MemberExpression propertyExpression, ConstantExpression constantExpression, CompareWith comparisonType)
+        private static Expression GetComparisonExpression(MemberExpression propertyExpression, ConstantExpression constantExpression, CompareWith comparisonType, ParameterExpression parameter)
         {
             switch (comparisonType)
             {
@@ -52,14 +53,32 @@ namespace Common.Filtering
                 case CompareWith.LessThanOrEqual:
                     return Expression.LessThanOrEqual(propertyExpression, constantExpression);
                 case CompareWith.Contains:
-                    var containsMethod = typeof(string).GetMethod(nameof(string.Contains), new[] { typeof(string) });
+                    var containsMethod = typeof(string).GetMethod(nameof(string.Contains), new[] { typeof(string) }) ?? throw new Exception($"method {nameof(string.Contains)} not found");
                     return Expression.Call(propertyExpression, containsMethod, constantExpression);
                 case CompareWith.StartsWith:
-                    var startsWithMethod = typeof(string).GetMethod(nameof(string.StartsWith), new[] { typeof(string) });
+                    var startsWithMethod = typeof(string).GetMethod(nameof(string.StartsWith), new[] { typeof(string) }) ?? throw new Exception($"method {nameof(string.StartsWith)} not found");
                     return Expression.Call(propertyExpression, startsWithMethod, constantExpression);
                 case CompareWith.EndsWith:
-                    var endsWithMethod = typeof(string).GetMethod(nameof(string.EndsWith), new[] { typeof(string) });
+                    var endsWithMethod = typeof(string).GetMethod(nameof(string.EndsWith), new[] { typeof(string) }) ?? throw new Exception($"method {nameof(string.EndsWith)} not found");
                     return Expression.Call(propertyExpression, endsWithMethod, constantExpression);
+                case CompareWith.NotEquals:
+                    return Expression.NotEqual(propertyExpression, constantExpression);
+                case CompareWith.In:
+                    var enumerableType = propertyExpression.Type.GetInterfaces()
+                        .FirstOrDefault(t => t.IsGenericType && t.GetGenericTypeDefinition() == typeof(IEnumerable<>));
+
+                    if (enumerableType == null)
+                    {
+                        throw new ArgumentException("Property is not of type IEnumerable<T>.");
+                    }
+
+                    var elementType = enumerableType.GetGenericArguments()[0];
+
+                    var anyMethod = typeof(Enumerable).GetMethods()
+                            .FirstOrDefault(m => m.Name == "Any" && m.GetParameters().Length == 2)!
+                            .MakeGenericMethod(elementType);
+
+                    return Expression.Call(propertyExpression, anyMethod, constantExpression);
                 default:
                     throw new NotSupportedException();
             }
