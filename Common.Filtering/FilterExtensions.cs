@@ -31,6 +31,7 @@ namespace Common.Filtering
                     var condition = GetComparisonExpression(propertyExpression, constantExpression, comparisonType, parameter);
 
                     var lambda = Expression.Lambda<Func<TEntity, bool>>(condition, parameter);
+
                     query = query.Where(lambda);
                 }
             }
