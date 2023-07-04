@@ -1,5 +1,6 @@
 ﻿namespace Common.Filtering
 {
+    [AttributeUsage(AttributeTargets.Property, AllowMultiple = false)]
     public class FilterByAttribute : Attribute
     {
         public string? ColumnName { get; }

@@ -1,4 +1,5 @@
-﻿using System.Linq.Expressions;
+﻿using System.Data.Common;
+using System.Linq.Expressions;
 using System.Reflection;
 using System.Reflection.Metadata;
 
@@ -9,34 +10,117 @@ namespace Common.Filtering
         public static IQueryable<TEntity> FilterBy<TEntity, TFilter>(this IQueryable<TEntity> query, TFilter filter)
             where TEntity : class
         {
-            var parameter = Expression.Parameter(typeof(TEntity));
+            if (filter == null) return query;
 
-            var properties = typeof(TFilter).GetProperties().Where(x =>
+            var parameter = Expression.Parameter(typeof(TEntity));
+            var filterProperties = typeof(TFilter).GetProperties();
+
+            var properties = filterProperties.Where(x =>
                 x.PropertyType.IsPublic &&
                 Attribute.IsDefined(x, typeof(FilterByAttribute)));
 
             foreach (var property in properties)
             {
-                var propertyValue = property.GetValue(filter);
+                //var propertyValue = property.GetValue(filter);
 
-                if (propertyValue != null)
+                //if (propertyValue == null) continue;
+
+                //var attribute = property.GetCustomAttribute<FilterByAttribute>();
+
+                //var compareToColumn = attribute!.ColumnName ?? property.Name;
+                //var comparisonType = attribute!.ComparisonType;
+
+                //var propertyExpression = Expression.Property(parameter, compareToColumn);
+                //var constantExpression = Expression.Constant(propertyValue);
+                //var condition = GetComparisonExpression(propertyExpression, constantExpression, comparisonType, parameter);
+
+                //var lambda = Expression.Lambda<Func<TEntity, bool>>(condition, parameter);
+
+                var lambda = BuildLambda<TEntity>(property, filter, parameter);
+                if (lambda == null) continue;
+
+                query = query.Where(lambda);
+
+            }
+
+            var innerRelations = filterProperties.Where(x =>
+                           x.PropertyType.IsPublic &&
+                           x.PropertyType.IsClass &&
+                           Attribute.IsDefined(x, typeof(FilterRelationAttribute)));
+
+            foreach (var innerRelation in innerRelations)
+            {
+                var propertyValue = innerRelation.GetValue(filter);
+                if (propertyValue == null) continue;
+
+                var attribute = innerRelation.GetCustomAttribute<FilterRelationAttribute>();
+                var relationName = attribute!.RelationName;
+                var relationType = attribute!.RelationType;
+
+                var innerParameter = Expression.Property(parameter, relationName);
+                var innerParameterType = innerParameter.Type.GenericTypeArguments[0];
+
+                var innerProperties = innerRelation.PropertyType.GetProperties().Where(x =>
+                                   x.PropertyType.IsPublic &&
+                                                      Attribute.IsDefined(x, typeof(FilterByAttribute)));
+
+                foreach (var innerProperty in innerProperties)
                 {
-                    var attribute = property.GetCustomAttribute<FilterByAttribute>();
+                    Expression<Func<TEntity, bool>>? lambda = null;
 
-                    var compareToColumn = attribute!.ColumnName ?? property.Name;
-                    var comparisonType = attribute!.ComparisonType;
+                    switch (relationType)
+                    {
+                        case RelationType.Class:
+                            lambda = BuildLambda<TEntity>(innerProperty, propertyValue, Expression.Parameter(innerParameterType));
+                            break;
+                        case RelationType.List:
+                            var innerLambda = BuildLambda(innerProperty, propertyValue, Expression.Parameter(innerParameterType), innerParameterType);
+                            if (innerLambda == null) continue;
 
-                    var propertyExpression = Expression.Property(parameter, compareToColumn);
-                    var constantExpression = Expression.Constant(propertyValue);
-                    var condition = GetComparisonExpression(propertyExpression, constantExpression, comparisonType, parameter);
+                            var anyMethod = typeof(Enumerable).GetMethods()
+                                    .FirstOrDefault(m => m.Name == "Any" && m.GetParameters().Length == 2)!
+                                    .MakeGenericMethod(innerParameterType);
 
-                    var lambda = Expression.Lambda<Func<TEntity, bool>>(condition, parameter);
+
+                            lambda = Expression.Lambda<Func<TEntity, bool>>(Expression.Call(anyMethod, innerParameter, innerLambda),parameter);
+                            break;
+                    }
+
+                    if (lambda == null) continue;
 
                     query = query.Where(lambda);
                 }
             }
 
             return query;
+        }
+
+        public static Expression<Func<TEntity, bool>>? BuildLambda<TEntity>(PropertyInfo property, object filter, ParameterExpression parameter)
+        {
+            var propertyValue = property.GetValue(filter);
+
+            if (propertyValue == null) return null;
+
+            var attribute = property.GetCustomAttribute<FilterByAttribute>();
+
+            var compareToColumn = attribute!.ColumnName ?? property.Name;
+            var comparisonType = attribute!.ComparisonType;
+
+            var propertyExpression = Expression.Property(parameter, compareToColumn);
+            var constantExpression = Expression.Constant(propertyValue);
+            var condition = GetComparisonExpression(propertyExpression, constantExpression, comparisonType, parameter);
+
+            return Expression.Lambda<Func<TEntity, bool>>(condition, parameter);
+        }
+
+        public static Expression? BuildLambda(PropertyInfo property, object filter, ParameterExpression parameter, Type type)
+        {
+            MethodInfo? methodLogAction = typeof(FilterExtensions).GetMethod(nameof(BuildLambda));
+            if (methodLogAction == null) throw new Exception("BuildLambda Method Is Missing");
+
+            MethodInfo generic = methodLogAction.MakeGenericMethod(type);
+
+            return (Expression?)generic.Invoke(null, new object[] { property, filter, Expression.Parameter(type) });
         }
 
         private static Expression GetComparisonExpression(MemberExpression propertyExpression, ConstantExpression constantExpression, CompareWith comparisonType, ParameterExpression parameter)
