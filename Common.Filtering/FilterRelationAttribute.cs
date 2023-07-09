@@ -14,7 +14,7 @@ namespace Common.Filtering
         public FilterRelationAttribute(string relationName)
         {
             RelationName = relationName;
-            RelationType = RelationType.OneToOne;
+            RelationType = RelationType.Class;
         }
 
         public FilterRelationAttribute(string relationName, RelationType relationType)
