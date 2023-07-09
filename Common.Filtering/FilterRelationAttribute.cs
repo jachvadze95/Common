@@ -10,7 +10,6 @@ namespace Common.Filtering
     {
         public string[] RelationNames { get; set; }
         public RelationType RelationType { get; set; }
-        public LogicalOperator? LogicalOperator { get; set; }
 
         public FilterRelationAttribute(string relationName)
         {
@@ -26,18 +25,16 @@ namespace Common.Filtering
             RelationType = relationType;
         }
 
-        public FilterRelationAttribute(string[] relationNames, LogicalOperator logicalOperator)
+        public FilterRelationAttribute(string[] relationNames)
         {
             RelationNames = relationNames;
             RelationType = RelationType.Class;
-            LogicalOperator = logicalOperator;
         }
 
-        public FilterRelationAttribute(string[] relationNames, RelationType relationType, LogicalOperator logicalOperator)
+        public FilterRelationAttribute(string[] relationNames, RelationType relationType)
         {
             RelationNames = relationNames;
             RelationType = relationType;
-            LogicalOperator = logicalOperator;
         }
     }
 }
