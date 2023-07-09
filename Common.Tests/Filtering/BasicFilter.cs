@@ -17,22 +17,29 @@ namespace Common.Tests.Filtering
         [FilterBy]
         public string? Name { get; set; }
 
+        [FilterBy("Name", CompareWith.Contains)]
+        public string? NameContains { get; set; }
+
+        [FilterBy("Name", CompareWith.NotEquals)]
+        public string NameNot { get; internal set; }
+
+
         [FilterBy(CompareWith.Contains)]
         public string? Description { get; set; }
 
         [FilterBy("Id", CompareWith.In)]
         public IEnumerable<int>? SpeficifIdList { get; set; }
 
-        [FilterBy("CreateDate", CompareWith.GreaterThan)]
+        [FilterBy("CreateDate", CompareWith.GreaterThanOrEqual)]
         public DateTime DateFromInclusive { get; set; }
 
-        [FilterBy("CreateDate", CompareWith.LessThan)]
+        [FilterBy("CreateDate", CompareWith.LessThanOrEqual)]
         public DateTime DateToInclusive { get; set; }
 
-        [FilterBy("CreateDate", CompareWith.GreaterThanOrEqual)]
+        [FilterBy("CreateDate", CompareWith.GreaterThan)]
         public DateTime DateFromExclusive { get; set; }
 
-        [FilterBy("CreateDate", CompareWith.LessThanOrEqual)]
+        [FilterBy("CreateDate", CompareWith.LessThan)]
         public DateTime DateToExclusive { get; set; }
 
         [FilterBy]

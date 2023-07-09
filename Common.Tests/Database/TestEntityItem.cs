@@ -8,7 +8,6 @@ namespace Common.Tests.Database
 {
     public class TestEntityItem
     {
-        public int Id { get; set; }
         public long Amount { get; set; }
         public string Name { get; set; }
         public string Description { get; set; }

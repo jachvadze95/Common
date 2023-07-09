@@ -10,75 +10,41 @@ namespace Common.Tests.Database
     public class TestDbContextInitializer
     {
         private readonly TestDbContext _context;
-        private readonly ILogger<TestDbContextInitializer> _logger;
 
-        public TestDbContextInitializer(TestDbContext context, ILogger<TestDbContextInitializer> logger)
+        public TestDbContextInitializer(TestDbContext context)
         {
             _context = context;
-            _logger = logger;
         }
 
-        public async Task InitialiseAsync()
+        public async Task InitialiseAsync(List<TestEntity> entities)
         {
             try
             {
                 //initialize inmemory database
                 await _context.Database.EnsureDeletedAsync(); // Drop the existing database
                 await _context.Database.EnsureCreatedAsync(); // Create a new in-memory database
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "An error occurred while initialising the database.");
-                throw;
-            }
-        }
 
-        public async Task SeedAsync()
-        {
-            try
-            {
-                await SeedTestEntities();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "An error occurred while seeding the database.");
-                throw;
-            }
-        }
-
-        private async Task SeedTestEntities()
-        {
-            var testEntities = new List<TestEntity>();
-
-            for (int i = 1; i <= 10; i++)
-            {
-                var testEntity = new TestEntity
+                //Seed the database
+                foreach (var entity in entities)
                 {
-                    Id = i,
-                    Name = $"Test Entity {i}",
-                    TestItems = new List<TestEntityItem>()
-                };
+                    var randDifference = new Random().Next(1, 100);
 
-                for (int j = 1; j <= 10; j++)
-                {
-                    var testEntityItem = new TestEntityItem
+                    entity.CreateDate = DateTime.Now.AddMinutes(randDifference);
+
+                    await _context.TestEntities.AddAsync(entity);
+
+                    foreach (var item in entity.TestItems)
                     {
-                        Id = (i - 1) * 10 + j,
-                        Amount = j * 100,
-                        Name = $"Item {j}",
-                        Description = $"Description for Item {j} of Entity {i}",
-                        CreateDate = DateTime.Now,
-                        TestListId = i
-                    };
-
-                    testEntity.TestItems.Add(testEntityItem);
+                        item.CreateDate = DateTime.Now.AddMinutes(randDifference);
+                    }
                 }
-
-                testEntities.Add(testEntity);
+                await _context.TestEntities.AddRangeAsync(entities);
+                await _context.SaveChangesAsync();
             }
-
-            await _context.TestEntities.AddRangeAsync(testEntities);
-            await _context.SaveChangesAsync();
+            catch (Exception ex)
+            {
+                throw;
+            }
         }
     }
 }
