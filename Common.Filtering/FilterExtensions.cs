@@ -21,21 +21,6 @@ namespace Common.Filtering
 
             foreach (var property in properties)
             {
-                //var propertyValue = property.GetValue(filter);
-
-                //if (propertyValue == null) continue;
-
-                //var attribute = property.GetCustomAttribute<FilterByAttribute>();
-
-                //var compareToColumn = attribute!.ColumnName ?? property.Name;
-                //var comparisonType = attribute!.ComparisonType;
-
-                //var propertyExpression = Expression.Property(parameter, compareToColumn);
-                //var constantExpression = Expression.Constant(propertyValue);
-                //var condition = GetComparisonExpression(propertyExpression, constantExpression, comparisonType, parameter);
-
-                //var lambda = Expression.Lambda<Func<TEntity, bool>>(condition, parameter);
-
                 var lambda = BuildLambda<TEntity>(property, filter, parameter);
                 if (lambda == null) continue;
 
@@ -54,48 +39,114 @@ namespace Common.Filtering
                 if (propertyValue == null) continue;
 
                 var attribute = innerRelation.GetCustomAttribute<FilterRelationAttribute>();
-                var relationName = attribute!.RelationName;
+                var relationNames = attribute!.RelationNames;
                 var relationType = attribute!.RelationType;
+                var logicalOperator = attribute.LogicalOperator;
 
-                var innerParameter = Expression.Property(parameter, relationName);
-                var innerParameterType = innerParameter.Type.GenericTypeArguments[0];
+                var singleRelation = relationNames.Length == 1;
+                if(!singleRelation && logicalOperator == null)
+                {
+                    throw new ArgumentException("Logical operator must be specified when there are multiple relation names");
+                }
 
                 var innerProperties = innerRelation.PropertyType.GetProperties().Where(x =>
-                                   x.PropertyType.IsPublic &&
-                                                      Attribute.IsDefined(x, typeof(FilterByAttribute)));
+                   x.PropertyType.IsPublic &&
+                                      Attribute.IsDefined(x, typeof(FilterByAttribute)));
 
-                foreach (var innerProperty in innerProperties)
+                if (singleRelation)
                 {
-                    Expression<Func<TEntity, bool>>? lambda = null;
+                    var innerParameter = Expression.Property(parameter, relationNames[0]);
+                    var innerParameterType = innerParameter.Type.GenericTypeArguments[0];
 
-                    switch (relationType)
+                    foreach (var innerProperty in innerProperties)
                     {
-                        case RelationType.Class:
-                            lambda = BuildLambda<TEntity>(innerProperty, propertyValue, Expression.Parameter(innerParameterType));
-                            break;
-                        case RelationType.List:
-                            var innerLambda = BuildLambda(innerProperty, propertyValue, Expression.Parameter(innerParameterType), innerParameterType);
-                            if (innerLambda == null) continue;
+                        Expression<Func<TEntity, bool>>? lambda = null;
 
-                            var anyMethod = typeof(Enumerable).GetMethods()
-                                    .FirstOrDefault(m => m.Name == "Any" && m.GetParameters().Length == 2)!
-                                    .MakeGenericMethod(innerParameterType);
+                        switch (relationType)
+                        {
+                            case RelationType.Class:
+                                lambda = BuildLambda<TEntity>(innerProperty, propertyValue, Expression.Parameter(innerParameterType));
+                                break;
+                            case RelationType.List:
+                                var innerLambda = BuildLambdaGeneric(innerProperty, propertyValue, Expression.Parameter(innerParameterType), innerParameterType);
+                                if (innerLambda == null) continue;
+
+                                var anyMethod = typeof(Enumerable).GetMethods()
+                                        .FirstOrDefault(m => m.Name == "Any" && m.GetParameters().Length == 2)!
+                                        .MakeGenericMethod(innerParameterType);
 
 
-                            lambda = Expression.Lambda<Func<TEntity, bool>>(Expression.Call(anyMethod, innerParameter, innerLambda),parameter);
-                            break;
+                                lambda = Expression.Lambda<Func<TEntity, bool>>(Expression.Call(anyMethod, innerParameter, innerLambda), parameter);
+                                break;
+                        }
+
+                        if (lambda == null) continue;
+                        query = query.Where(lambda);
+                    }
+                }
+                else
+                {
+                    IEnumerable<Expression<Func<TEntity, bool>>> lambdas = new List<Expression<Func<TEntity, bool>>>();
+
+                    foreach (var relationName in relationNames)
+                    {
+                        var innerParameter = Expression.Property(parameter, relationName);
+                        var innerParameterType = innerParameter.Type.GenericTypeArguments[0];
+
+                        foreach (var innerProperty in innerProperties)
+                        {
+                            Expression<Func<TEntity, bool>>? lambda = null;
+
+                            switch (relationType)
+                            {
+                                case RelationType.Class:
+                                    lambda = BuildLambda<TEntity>(innerProperty, propertyValue, Expression.Parameter(innerParameterType), true);
+                                    break;
+                                case RelationType.List:
+                                    var innerLambda = BuildLambdaGeneric(innerProperty, propertyValue, Expression.Parameter(innerParameterType), innerParameterType);
+                                    if (innerLambda == null) continue;
+
+                                    var anyMethod = typeof(Enumerable).GetMethods()
+                                            .FirstOrDefault(m => m.Name == "Any" && m.GetParameters().Length == 2)!
+                                            .MakeGenericMethod(innerParameterType);
+
+
+                                    lambda = Expression.Lambda<Func<TEntity, bool>>(Expression.Call(anyMethod, innerParameter, innerLambda), parameter);
+                                    break;
+                            }
+
+                            if (lambda != null)
+                            {
+                                lambdas = lambdas.Append(lambda);
+                            }
+                        }
                     }
 
-                    if (lambda == null) continue;
+                    if (lambdas.Any())
+                    {
+                        Expression<Func<TEntity, bool>>? lambda = null;
 
-                    query = query.Where(lambda);
+                        if (logicalOperator == LogicalOperator.And)
+                        {
+                            lambda = lambdas.Aggregate((x, y) => Expression.Lambda<Func<TEntity, bool>>(Expression.AndAlso(x.Body, y.Body), parameter));
+                        }
+                        else if (logicalOperator == LogicalOperator.Or)
+                        {
+                            lambda = lambdas.Aggregate((x, y) => Expression.Lambda<Func<TEntity, bool>>(Expression.OrElse(x.Body, y.Body), parameter));
+                        }
+
+                        if (lambda != null)
+                        {
+                            query = query.Where(lambda);
+                        }
+                    }
                 }
             }
 
             return query;
         }
 
-        public static Expression<Func<TEntity, bool>>? BuildLambda<TEntity>(PropertyInfo property, object filter, ParameterExpression parameter)
+        public static Expression<Func<TEntity, bool>>? BuildLambda<TEntity>(PropertyInfo property, object filter, ParameterExpression parameter, bool checkForNullFirst = false)
         {
             var propertyValue = property.GetValue(filter);
 
@@ -108,12 +159,14 @@ namespace Common.Filtering
 
             var propertyExpression = Expression.Property(parameter, compareToColumn);
             var constantExpression = Expression.Constant(propertyValue);
-            var condition = GetComparisonExpression(propertyExpression, constantExpression, comparisonType, parameter);
 
-            return Expression.Lambda<Func<TEntity, bool>>(condition, parameter);
+            var condition = GetComparisonExpression(propertyExpression, constantExpression, comparisonType, parameter);
+            var mergedCondition = checkForNullFirst ? Expression.AndAlso(Expression.NotEqual(propertyExpression, Expression.Constant(null)), condition) : condition;
+
+            return Expression.Lambda<Func<TEntity, bool>>(mergedCondition, parameter);
         }
 
-        public static Expression? BuildLambda(PropertyInfo property, object filter, ParameterExpression parameter, Type type)
+        public static Expression? BuildLambdaGeneric(PropertyInfo property, object filter, ParameterExpression parameter, Type type)
         {
             MethodInfo? methodLogAction = typeof(FilterExtensions).GetMethod(nameof(BuildLambda));
             if (methodLogAction == null) throw new Exception("BuildLambda Method Is Missing");
