@@ -17,6 +17,12 @@
             ComparisonType = comparisonType;
         }
 
+        public FilterByAttribute(string columnName)
+        {
+            ColumnName = columnName;
+            ComparisonType = CompareWith.Equals;
+        }
+
         public FilterByAttribute()
         {
             ComparisonType = CompareWith.Equals;
