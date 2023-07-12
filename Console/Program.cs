@@ -14,6 +14,7 @@ for (int i = 1; i <= 100; i++)
         Name = "TestEntity " + i,
         Description = "TestEntity Details" + i,
         TestItems = Helpers.GetItems(i, randomCount).ToList(),
+        CreateDate = DateTime.Now,
         Detail = new TestEntityDetail1
         {
             ParentId = i,

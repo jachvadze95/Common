@@ -16,13 +16,17 @@ namespace Common.Tests.Database
             _context = context;
         }
 
-        public async Task InitialiseAsync(List<TestEntity> entities)
+        public async Task InitialiseAsync(TestEntity[] entities)
         {
             try
             {
-                //initialize inmemory database
-                await _context.Database.EnsureDeletedAsync(); // Drop the existing database
                 await _context.Database.EnsureCreatedAsync(); // Create a new in-memory database
+
+                var isDbEntriesPresent = _context.TestEntities.Count();
+                if(isDbEntriesPresent > 0)
+                {
+                    return;
+                }
 
                 //Seed the database
                 foreach (var entity in entities)

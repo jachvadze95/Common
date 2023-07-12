@@ -16,7 +16,7 @@ namespace Common.Tests
         private TestDbContext _dbContext;
         private TestDbContextInitializer _dbContextInitializer;
 
-        private List<TestEntity> _entities = new List<TestEntity>();
+        private TestEntity[] _entities;
         private const string _connectionString = "Data Source=HAWK;Initial Catalog=TestDB;Integrated Security=True;TrustServerCertificate=True";
 
         public UnitTest1()
@@ -42,8 +42,7 @@ namespace Common.Tests
         public async Task TestInitialize()
         {
             var text = File.ReadAllText(@"C:\Users\jachv\source\repos\Common\Common.Tests\Database\data.json");
-            _entities = JsonConvert.DeserializeObject<List<TestEntity>>(text);
-
+            _entities = JsonConvert.DeserializeObject<List<TestEntity>>(text).ToArray();
             await _dbContextInitializer.InitialiseAsync(_entities);
         }
 
@@ -112,7 +111,9 @@ namespace Common.Tests
             var result = _entities.Where(x => x.Name != filter.NameNot).ToList();
 
             Assert.AreEqual(result.Count, dbResults.Count);
-            Assert.AreEqual(result[0].Name, dbResults[0].Name);
+
+            if (result.Count > 0)
+                Assert.AreEqual(result[0].Name, dbResults[0].Name);
         }
 
         [TestMethod]
@@ -129,7 +130,9 @@ namespace Common.Tests
             var result = _entities.Where(x => x.CreateDate >= filter.DateFromInclusive).ToList();
 
             Assert.AreEqual(result.Count, dbResults.Count);
-            Assert.AreEqual(result[0].Name, dbResults[0].Name);
+
+            if (result.Count > 0)
+                Assert.AreEqual(result[0].Name, dbResults[0].Name);
         }
 
         [TestMethod]
@@ -163,7 +166,9 @@ namespace Common.Tests
             var result = _entities.Where(x => x.CreateDate <= filter.DateToInclusive).ToList();
 
             Assert.AreEqual(result.Count, dbResults.Count);
-            Assert.AreEqual(result[0].Name, dbResults[0].Name);
+
+            if (result.Count > 0)
+                Assert.AreEqual(result[0].Name, dbResults[0].Name);
         }
 
         [TestMethod]
@@ -180,7 +185,9 @@ namespace Common.Tests
             var result = _entities.Where(x => x.CreateDate < filter.DateToExclusive).ToList();
 
             Assert.AreEqual(result.Count, dbResults.Count);
-            Assert.AreEqual(result[0].Name, dbResults[0].Name);
+
+            if (result.Count > 0)
+                Assert.AreEqual(result[0].Name, dbResults[0].Name);
         }
 
         [TestMethod]
@@ -197,7 +204,9 @@ namespace Common.Tests
             var result = _entities.Where(x => x.Name.Contains(filter.NameContains)).ToList();
 
             Assert.AreEqual(result.Count, dbResults.Count);
-            Assert.AreEqual(result[0].Name, dbResults[0].Name);
+
+            if (result.Count > 0)
+                Assert.AreEqual(result[0].Name, dbResults[0].Name);
         }
 
 
@@ -205,7 +214,7 @@ namespace Common.Tests
         private TestEntity GetRandomEntity()
         {
             var random = new Random();
-            return _entities[random.Next(0, _entities.Count)];
+            return _entities[random.Next(0, _entities.Count())];
         }
     }
 }
