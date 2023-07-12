@@ -9,7 +9,7 @@ namespace Common.Filtering
 {
     public static class FilterExtensions
     {
-        public static IQueryable<TEntity> FilterBy<TEntity, TFilter>(this IQueryable<TEntity> query, TFilter filter)
+        public static IQueryable<TEntity> FilterBy<TEntity, TFilter>(this IQueryable<TEntity> query, TFilter filter, bool filterByRelations = false)
             where TEntity : class
         {
             if (filter == null) return query;
@@ -27,9 +27,20 @@ namespace Common.Filtering
                 if (lambda == null) continue;
 
                 query = query.Where(lambda);
-
             }
 
+            if(filterByRelations)
+            {
+                query = query.FilterByRelations(filter, filterProperties, parameter);
+            }
+
+            Console.WriteLine(query);
+
+            return query;
+        }
+
+        public static IQueryable<TEntity> FilterByRelations<TEntity, TFilter>(this IQueryable<TEntity> query, TFilter filter, PropertyInfo[] filterProperties, ParameterExpression parameter)
+        {
             var innerRelations = filterProperties.Where(x =>
                            x.PropertyType.IsPublic &&
                            x.PropertyType.IsClass &&
@@ -121,18 +132,31 @@ namespace Common.Filtering
 
             if (propertyValue == null) return null;
 
-            var attribute = property.GetCustomAttribute<FilterByAttribute>();
+            var attributes = property.GetCustomAttributes<FilterByAttribute>();
 
-            var compareToColumn = attribute!.ColumnName ?? property.Name;
-            var comparisonType = attribute!.ComparisonType;
+            List<Expression> attributeExpressions = new List<Expression>();
 
-            var propertyExpression = Expression.Property(parameter, compareToColumn);
-            var constantExpression = Expression.Constant(propertyValue);
+            foreach (var attribute in attributes)
+            {
+                var compareToColumn = attribute!.ColumnName ?? property.Name;
+                var comparisonType = attribute!.ComparisonType;
 
-            var condition = GetComparisonExpression(propertyExpression, constantExpression, comparisonType, parameter);
-            var mergedCondition = checkForNullFirst ? Expression.AndAlso(Expression.NotEqual(propertyExpression, Expression.Constant(null)), condition) : condition;
+                var propertyExpression = Expression.Property(parameter, compareToColumn);
+                var constantExpression = Expression.Constant(propertyValue);
 
-            return Expression.Lambda<Func<TEntity, bool>>(mergedCondition, parameter);
+                var condition = GetComparisonExpression(propertyExpression, constantExpression, comparisonType, parameter);
+                var expression = checkForNullFirst ? Expression.AndAlso(Expression.NotEqual(propertyExpression, Expression.Constant(null)), condition) : condition;
+
+                attributeExpressions.Add(expression);
+            }
+
+            Expression final = attributeExpressions.First();
+            
+            if (attributeExpressions.Count() > 1) {
+                final = attributeExpressions.Aggregate((x, y) => Expression.OrElse(x, y));
+            }
+
+            return Expression.Lambda<Func<TEntity, bool>>(final, parameter);
         }
 
         private static Expression? BuildLambdaGeneric(PropertyInfo property, object filter, ParameterExpression parameter, Type type)

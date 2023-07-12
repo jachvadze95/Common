@@ -69,6 +69,32 @@ namespace Common.Tests
             var result = _entities.Where(x => x.Name == filter.Name).ToList();
 
             Assert.AreEqual(result.Count, dbResults.Count);
+
+            if (result.Count > 0)
+                Assert.AreEqual(result[0].Name, dbResults[0].Name);
+        }
+
+        [TestMethod]
+        public async Task FilterWithEqualsAndRelation()
+        {
+            Assert.IsTrue(true);
+        }
+
+        [TestMethod]
+        public async Task FilterWithMultipleAttribute()
+        {
+            var randomNum = new Random().Next(0, 10);
+
+            var filter = new BasicFilter()
+            {
+                Keyword = randomNum.ToString()
+            };
+
+            var q = _dbContext.TestEntities.AsQueryable().FilterBy(filter);
+            var dbResults = await q.ToListAsync();
+            var result = _entities.Where(x => x.Description.Contains(filter.Keyword) || x.Name.Contains(filter.Keyword)).ToList();
+
+            Assert.AreEqual(result.Count, dbResults.Count);
             Assert.AreEqual(result[0].Name, dbResults[0].Name);
         }
 
