@@ -11,6 +11,7 @@
         StartsWith,
         EndsWith,
         In,
-        NotEquals
+        NotEquals,
+        IsNull
     }
 }

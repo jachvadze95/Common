@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.Design;
+﻿using System;
+using System.ComponentModel.Design;
 using System.Data.Common;
 using System.Linq;
 using System.Linq.Expressions;
@@ -29,7 +30,7 @@ namespace Common.Filtering
                 query = query.Where(lambda);
             }
 
-            if(filterByRelations)
+            if (filterByRelations)
             {
                 query = query.FilterByRelations(filter, filterProperties, parameter);
             }
@@ -71,7 +72,7 @@ namespace Common.Filtering
                 }
                 else
                 {
-                    whereClause = lambdas.Aggregate((x, y) => Expression.Lambda<Func<TEntity, bool>>(Expression.OrElse(x.Body, y.Body), parameter));
+                    whereClause = lambdas.Aggregate((x, y) => Expression.Lambda<Func<TEntity, bool>>(Expression.AndAlso(x.Body, y.Body), parameter));
                 }
             }
 
@@ -105,10 +106,7 @@ namespace Common.Filtering
                             var innerLambda = BuildLambdaGeneric(innerProperty, propertyValue, Expression.Parameter(innerParameterType), innerParameterType);
                             if (innerLambda == null) continue;
 
-                            var anyMethod = typeof(Enumerable).GetMethods()
-                                    .FirstOrDefault(m => m.Name == "Any" && m.GetParameters().Length == 2)!
-                                    .MakeGenericMethod(innerParameterType);
-
+                            var anyMethod = typeof(Enumerable).GetMethods().FirstOrDefault(m => m.Name == "Contains")!.MakeGenericMethod(innerParameterType);
 
                             lambda = Expression.Lambda<Func<TEntity, bool>>(Expression.Call(anyMethod, innerParameter, innerLambda), parameter);
                             break;
@@ -151,9 +149,19 @@ namespace Common.Filtering
             }
 
             Expression final = attributeExpressions.First();
-            
-            if (attributeExpressions.Count() > 1) {
-                final = attributeExpressions.Aggregate((x, y) => Expression.OrElse(x, y));
+
+            if (attributeExpressions.Count() > 1)
+            {
+                var combineWith = attributes.First()?.CombineWith;
+
+                if (combineWith == CombineWith.And)
+                {
+                    final = attributeExpressions.Aggregate((x, y) => Expression.AndAlso(x, y));
+                }
+                else if (combineWith == CombineWith.Or)
+                {
+                    final = attributeExpressions.Aggregate((x, y) => Expression.OrElse(x, y));
+                }
             }
 
             return Expression.Lambda<Func<TEntity, bool>>(final, parameter);
@@ -194,6 +202,8 @@ namespace Common.Filtering
                     return Expression.Call(propertyExpression, endsWithMethod, constantExpression);
                 case CompareWith.NotEquals:
                     return Expression.NotEqual(propertyExpression, constantExpression);
+                case CompareWith.IsNull:
+                    return Expression.Equal(propertyExpression, Expression.Constant(null));
                 case CompareWith.In:
                     var enumerableType = propertyExpression.Type.GetInterfaces()
                         .FirstOrDefault(t => t.IsGenericType && t.GetGenericTypeDefinition() == typeof(IEnumerable<>));
@@ -205,9 +215,7 @@ namespace Common.Filtering
 
                     var elementType = enumerableType.GetGenericArguments()[0];
 
-                    var anyMethod = typeof(Enumerable).GetMethods()
-                            .FirstOrDefault(m => m.Name == "Any" && m.GetParameters().Length == 2)!
-                            .MakeGenericMethod(elementType);
+                    var anyMethod = typeof(Enumerable).GetMethods().FirstOrDefault(m => m.Name == "Contains")!.MakeGenericMethod(elementType);
 
                     return Expression.Call(propertyExpression, anyMethod, constantExpression);
                 default:
