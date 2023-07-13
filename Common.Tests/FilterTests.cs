@@ -142,7 +142,7 @@ namespace Common.Tests
 
             var filter = new BasicFilter()
             {
-                DateFromExclusive = randomEntity.CreateDate.AddSeconds(-5),
+                DateFromExclusive = randomEntity.CreateDate.AddMinutes(-5)
             };
 
             var dbResults = await _dbContext.TestEntities.AsQueryable().FilterBy(filter).ToListAsync();
@@ -207,6 +207,42 @@ namespace Common.Tests
 
             if (result.Count > 0)
                 Assert.AreEqual(result[0].Name, dbResults[0].Name);
+        }
+
+        [TestMethod]
+        public async Task FilterFull()
+        {
+
+            var randomNum = new Random().Next(0, 10);
+
+            var filter = new BasicFilter()
+            {
+                Name = randomNum.ToString(),
+                NameNot = randomNum.ToString(),
+                Keyword = randomNum.ToString(),
+                DateFromInclusive = DateTime.Now.AddSeconds(-5),
+                DateFromExclusive = DateTime.Now.AddSeconds(-5),
+                DateToInclusive = DateTime.Now.AddSeconds(-5),
+                DateToExclusive = DateTime.Now.AddSeconds(-5),
+                NameContains = randomNum.ToString(),
+                SpeficifIdList = Enumerable.Range(1, 1000).ToList()
+        };
+
+            var dbResults = await _dbContext.TestEntities.AsQueryable().FilterBy(filter).ToListAsync();
+            var result = _entities.Where(x => x.Name == filter.Name
+                                                       && x.Name != filter.NameNot
+                                                                                                  && (x.Description.Contains(filter.Keyword) || x.Name.Contains(filter.Keyword))
+                                                                                                                                             && x.CreateDate >= filter.DateFromInclusive
+                                                                                                                                                                                        && x.CreateDate > filter.DateFromExclusive
+                                                                                                                                                                                                                                   && x.CreateDate <= filter.DateToInclusive
+                                                                                                                                                                                                                                                                              && x.CreateDate < filter.DateToExclusive
+                                                                                                                                                                                                                                                                                                                         && x.Name.Contains(filter.NameContains)).ToList();
+
+            Assert.AreEqual(result.Count, dbResults.Count);
+
+            if (result.Count > 0)
+                Assert.AreEqual(result[0].Name, dbResults[0].Name);
+
         }
 
 

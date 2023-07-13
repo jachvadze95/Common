@@ -205,19 +205,11 @@ namespace Common.Filtering
                 case CompareWith.IsNull:
                     return Expression.Equal(propertyExpression, Expression.Constant(null));
                 case CompareWith.In:
-                    var enumerableType = propertyExpression.Type.GetInterfaces()
-                        .FirstOrDefault(t => t.IsGenericType && t.GetGenericTypeDefinition() == typeof(IEnumerable<>));
+                    var type = propertyExpression.Type;
 
-                    if (enumerableType == null)
-                    {
-                        throw new ArgumentException("Property is not of type IEnumerable<T>.");
-                    }
+                    var anyMethod = typeof(Enumerable).GetMethods().FirstOrDefault(m => m.Name == "Contains")!.MakeGenericMethod(type);
 
-                    var elementType = enumerableType.GetGenericArguments()[0];
-
-                    var anyMethod = typeof(Enumerable).GetMethods().FirstOrDefault(m => m.Name == "Contains")!.MakeGenericMethod(elementType);
-
-                    return Expression.Call(propertyExpression, anyMethod, constantExpression);
+                    return Expression.Call(anyMethod, constantExpression, propertyExpression);
                 default:
                     throw new NotSupportedException();
             }

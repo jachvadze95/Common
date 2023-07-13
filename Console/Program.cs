@@ -28,4 +28,4 @@ for (int i = 1; i <= 100; i++)
 
 string json = JsonConvert.SerializeObject(testEntities);
 
-File.WriteAllText("C:\\Users\\jachv\\source\\repos\\Common\\Common.Tests\\Database\\data.json", json);
+//File.WriteAllText("C:\\Users\\jachv\\source\\repos\\Common\\Common.Tests\\Database\\data.json", json);
