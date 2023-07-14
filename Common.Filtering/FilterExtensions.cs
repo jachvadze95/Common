@@ -15,6 +15,8 @@ namespace Common.Filtering
         {
             if (filter == null) return query;
 
+            var andList = new List<Expression<Func<TEntity, bool>>>();
+
             var parameter = Expression.Parameter(typeof(TEntity));
             var filterProperties = typeof(TFilter).GetProperties();
 
@@ -24,107 +26,71 @@ namespace Common.Filtering
 
             foreach (var property in properties)
             {
-                var lambda = BuildLambda<TEntity>(property, filter, parameter);
+                var lambda = BuildLambda(property, filter, parameter);
                 if (lambda == null) continue;
 
-                query = query.Where(lambda);
+                andList.Add(Expression.Lambda<Func<TEntity, bool>>(lambda, parameter));
             }
 
             if (filterByRelations)
             {
-                query = query.FilterByRelations(filter, filterProperties, parameter);
-            }
+                var innerRelations = filterProperties.Where(x =>
+                    x.PropertyType.IsPublic &&
+                    x.PropertyType.IsClass &&
+                    Attribute.IsDefined(x, typeof(FilterRelationAttribute)));
 
-            Console.WriteLine(query);
-
-            return query;
-        }
-
-        public static IQueryable<TEntity> FilterByRelations<TEntity, TFilter>(this IQueryable<TEntity> query, TFilter filter, PropertyInfo[] filterProperties, ParameterExpression parameter)
-        {
-            var innerRelations = filterProperties.Where(x =>
-                           x.PropertyType.IsPublic &&
-                           x.PropertyType.IsClass &&
-                           Attribute.IsDefined(x, typeof(FilterRelationAttribute)));
-
-            Expression<Func<TEntity, bool>>? whereClause = null;
-
-            foreach (var innerRelation in innerRelations)
-            {
-                var propertyValue = innerRelation.GetValue(filter);
-                if (propertyValue == null) continue;
-
-                var attribute = innerRelation.GetCustomAttribute<FilterRelationAttribute>();
-
-                var relationNames = attribute!.RelationNames;
-                var relationType = attribute!.RelationType;
-
-                var innerProperties = innerRelation.PropertyType.GetProperties().Where(x =>
-                   x.PropertyType.IsPublic &&
-                                      Attribute.IsDefined(x, typeof(FilterByAttribute)));
-
-                var lambdas = BuildRelationalLambda<TEntity>(relationNames, parameter, innerProperties, relationType, propertyValue);
-
-                if (lambdas == null || !lambdas.Any()) continue;
-                if (relationNames.Length == 1)
+                foreach (var innerRelation in innerRelations)
                 {
-                    whereClause = lambdas.First();
-                }
-                else
-                {
-                    whereClause = lambdas.Aggregate((x, y) => Expression.Lambda<Func<TEntity, bool>>(Expression.AndAlso(x.Body, y.Body), parameter));
-                }
-            }
+                    var relationalLambda = new List<Expression>();
+                    var innerFilterValue = innerRelation.GetValue(filter);
+                    if (innerFilterValue == null) continue;
 
-            if (whereClause != null)
-            {
-                query = query.Where(whereClause);
-            }
+                    var attribute = innerRelation.GetCustomAttribute<FilterRelationAttribute>();
 
-            return query;
-        }
+                    var relationNames = attribute!.RelationNames;
+                    var relationType = attribute!.RelationType;
 
-        private static IEnumerable<Expression<Func<TEntity, bool>>> BuildRelationalLambda<TEntity>(string[] relationNames, ParameterExpression parameter, IEnumerable<PropertyInfo> innerProperties, RelationType relationType, object propertyValue)
-        {
-            foreach (var relationName in relationNames)
-            {
-                var innerParameter = Expression.Property(parameter, relationName);
-                var innerParameterType = innerParameter.Type.GenericTypeArguments[0];
+                    var innerProperty = Expression.Property(parameter, relationNames[0]);
+                    var innerParameterType = innerProperty.Type.GenericTypeArguments[0];
+                    var innerParameter = Expression.Parameter(innerParameterType);
 
-                var propLambdas = new List<Expression<Func<TEntity, bool>>>();
+                    var innerProperties = innerRelation.PropertyType.GetProperties().Where(x => x.PropertyType.IsPublic && Attribute.IsDefined(x, typeof(FilterByAttribute)));
 
-                foreach (var innerProperty in innerProperties)
-                {
-                    Expression<Func<TEntity, bool>>? lambda = null;
-
-                    switch (relationType)
+                    foreach (var property in innerProperties)
                     {
-                        case RelationType.Class:
-                            lambda = BuildLambda<TEntity>(innerProperty, propertyValue, Expression.Parameter(innerParameterType));
-                            break;
-                        case RelationType.List:
-                            var innerLambda = BuildLambdaGeneric(innerProperty, propertyValue, Expression.Parameter(innerParameterType), innerParameterType);
-                            if (innerLambda == null) continue;
-
-                            var anyMethod = typeof(Enumerable).GetMethods().FirstOrDefault(m => m.Name == "Contains")!.MakeGenericMethod(innerParameterType);
-
-                            lambda = Expression.Lambda<Func<TEntity, bool>>(Expression.Call(anyMethod, innerParameter, innerLambda), parameter);
-                            break;
+                        var lambda = BuildLambda(property, innerFilterValue, innerParameter);
+                        if (lambda == null) continue;
+                        relationalLambda.Add(lambda);
                     }
 
-                    if (lambda == null) continue;
+                    if(relationalLambda.Any())
+                    {
+                        var combined = relationalLambda.Aggregate((x, y) => Expression.Lambda(Expression.AndAlso(x, y), innerParameter));
 
-                    propLambdas.Add(lambda);
-                }
-
-                if (propLambdas.Any())
-                {
-                    yield return propLambdas.Aggregate((x, y) => Expression.Lambda<Func<TEntity, bool>>(Expression.AndAlso(x.Body, y.Body), parameter));
+                        switch(relationType)
+                        {
+                            case RelationType.List:
+                                var anyMethod = typeof(Enumerable).GetMethods()
+                                                       .FirstOrDefault(m => m.Name == "Any" && m.GetParameters().Length == 2)!
+                                                       .MakeGenericMethod(innerParameterType);
+                                var lambda = Expression.Lambda<Func<TEntity, bool>>(Expression.Call(anyMethod, innerProperty, combined), parameter);
+                                andList.Add(lambda);
+                                break;
+                            case RelationType.Class:
+                                andList.Add(Expression.Lambda<Func<TEntity, bool>>(Expression.Equal(innerProperty, combined), parameter));
+                                break;
+                        }
+                    }
                 }
             }
+
+            var clause = andList.Aggregate((x, y) => Expression.Lambda<Func<TEntity, bool>>(Expression.AndAlso(x.Body, y.Body), parameter));
+            query = query.Where(clause);
+
+            return query;
         }
 
-        private static Expression<Func<TEntity, bool>>? BuildLambda<TEntity>(PropertyInfo property, object filter, ParameterExpression parameter, bool checkForNullFirst = false)
+        public static Expression? BuildLambda(PropertyInfo property, object filter, ParameterExpression parameter, bool checkForNullFirst = false)
         {
             var propertyValue = property.GetValue(filter);
 
@@ -164,20 +130,10 @@ namespace Common.Filtering
                 }
             }
 
-            return Expression.Lambda<Func<TEntity, bool>>(final, parameter);
+            return final;
         }
 
-        private static Expression? BuildLambdaGeneric(PropertyInfo property, object filter, ParameterExpression parameter, Type type)
-        {
-            MethodInfo? methodLogAction = typeof(FilterExtensions).GetMethod(nameof(BuildLambda));
-            if (methodLogAction == null) throw new Exception("BuildLambda Method Is Missing");
-
-            MethodInfo generic = methodLogAction.MakeGenericMethod(type);
-
-            return (Expression?)generic.Invoke(null, new object[] { property, filter, Expression.Parameter(type) });
-        }
-
-        private static Expression GetComparisonExpression(MemberExpression propertyExpression, ConstantExpression constantExpression, CompareWith comparisonType, ParameterExpression parameter)
+        public static Expression GetComparisonExpression(MemberExpression propertyExpression, ConstantExpression constantExpression, CompareWith comparisonType, ParameterExpression parameter)
         {
             switch (comparisonType)
             {

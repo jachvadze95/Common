@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Common.Filtering;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -58,5 +59,17 @@ namespace Common.Tests.Filtering
         [FilterBy("Name", CompareWith.Contains)]
         [FilterBy("Description", CompareWith.Contains)]
         public string? Keyword { get; set; }
+
+        [FilterRelation("TestItems", RelationType.List)]
+        public ListFilter? ListFilter { get; set; }
+    }
+
+    public class ListFilter
+    {
+        [FilterBy(CompareWith.Contains)]
+        public string? Description { get; set; }
+
+        [FilterBy]
+        public long? Amount { get; set; }
     }
 }

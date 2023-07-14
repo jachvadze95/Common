@@ -245,6 +245,31 @@ namespace Common.Tests
 
         }
 
+        [TestMethod]
+        public async Task FilterListRelation()
+        {
+            var randomNum = new Random().Next(0, 10);
+
+            var filter = new BasicFilter()
+            {
+                Description = "4",
+
+                ListFilter = new ListFilter
+                {
+                    Amount = 404,
+                    Description = "4"
+                }
+            };
+
+            var dbResults = await _dbContext.TestEntities.AsQueryable().FilterBy(filter, true).ToListAsync();
+            var result = _entities.Where(x => x.Description.Contains(filter.Description) && x.TestItems.Any(i => i.Description.Contains(filter.ListFilter.Description) && i.Amount == filter.ListFilter.Amount)).ToList();
+
+            Assert.AreEqual(result.Count, dbResults.Count);
+
+            if (result.Count > 0)
+                Assert.AreEqual(result[0].Name, dbResults[0].Name);
+
+        }
 
 
         private TestEntity GetRandomEntity()
