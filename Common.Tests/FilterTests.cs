@@ -6,6 +6,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Newtonsoft.Json;
+using System;
+using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 
 namespace Common.Tests
@@ -15,6 +17,7 @@ namespace Common.Tests
     {
         private TestDbContext _dbContext;
         private TestDbContextInitializer _dbContextInitializer;
+        private ServiceProvider _sp;
 
         private TestEntity[] _entities;
         private const string _connectionString = "Data Source=HAWK;Initial Catalog=TestDB;Integrated Security=True;TrustServerCertificate=True";
@@ -32,6 +35,7 @@ namespace Common.Tests
 
 
             var serviceProvider = services.BuildServiceProvider();
+            _sp = serviceProvider;
             _dbContext = serviceProvider.GetRequiredService<TestDbContext>();
             _dbContextInitializer = serviceProvider.GetRequiredService<TestDbContextInitializer>();
 
@@ -226,7 +230,7 @@ namespace Common.Tests
                 DateToExclusive = DateTime.Now.AddSeconds(-5),
                 NameContains = randomNum.ToString(),
                 SpeficifIdList = Enumerable.Range(1, 1000).ToList()
-        };
+            };
 
             var dbResults = await _dbContext.TestEntities.AsQueryable().FilterBy(filter).ToListAsync();
             var result = _entities.Where(x => x.Name == filter.Name

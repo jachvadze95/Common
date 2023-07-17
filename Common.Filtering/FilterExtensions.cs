@@ -10,7 +10,9 @@ namespace Common.Filtering
 {
     public static class FilterExtensions
     {
-        public static IQueryable<TEntity> FilterBy<TEntity, TFilter>(this IQueryable<TEntity> query, TFilter filter, bool filterByRelations = false)
+        private readonly static Dictionary<Type, PropertyInfo[]> _properties = new Dictionary<Type, PropertyInfo[]>();
+
+        public static IQueryable<TEntity> FilterBy<TEntity, TFilter>(this IQueryable<TEntity> query, TFilter filter, bool filterByRelations = false, bool useCache = false)
             where TEntity : class
         {
             if (filter == null) return query;
@@ -18,7 +20,7 @@ namespace Common.Filtering
             var andList = new List<Expression<Func<TEntity, bool>>>();
 
             var parameter = Expression.Parameter(typeof(TEntity));
-            var filterProperties = typeof(TFilter).GetProperties();
+            var filterProperties = GetOrCacheTypeProps(typeof(TFilter),useCache);
 
             var properties = filterProperties.Where(x =>
                 x.PropertyType.IsPublic &&
@@ -63,11 +65,11 @@ namespace Common.Filtering
                         relationalLambda.Add(lambda);
                     }
 
-                    if(relationalLambda.Any())
+                    if (relationalLambda.Any())
                     {
                         var combined = relationalLambda.Aggregate((x, y) => Expression.Lambda(Expression.AndAlso(x, y), innerParameter));
 
-                        switch(relationType)
+                        switch (relationType)
                         {
                             case RelationType.List:
                                 var anyMethod = typeof(Enumerable).GetMethods()
@@ -169,6 +171,20 @@ namespace Common.Filtering
                 default:
                     throw new NotSupportedException();
             }
+        }
+
+        private static PropertyInfo[] GetOrCacheTypeProps(Type type, bool useCache)
+        {
+            if (useCache && _properties.ContainsKey(type))
+            {
+                return _properties[type];
+            }
+
+            var properties = type.GetProperties();
+
+            if (useCache) _properties.TryAdd(type, properties);
+
+            return properties;
         }
     }
 }
