@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.ComponentModel.Design;
 using System.Data.Common;
 using System.Linq;
@@ -10,7 +11,7 @@ namespace Common.Filtering
 {
     public static class FilterExtensions
     {
-        private readonly static Dictionary<Type, PropertyInfo[]> _properties = new Dictionary<Type, PropertyInfo[]>();
+        private readonly static ConcurrentDictionary<Type, PropertyInfo[]> _properties = new ConcurrentDictionary<Type, PropertyInfo[]>();
 
         public static IQueryable<TEntity> FilterBy<TEntity, TFilter>(this IQueryable<TEntity> query, TFilter filter, bool filterByRelations = false, bool useCache = false)
             where TEntity : class
