@@ -11,9 +11,16 @@ namespace Common.Filtering
 {
     public static class FilterExtensions
     {
-        private readonly static ConcurrentDictionary<Type, PropertyInfo[]> _properties = new ConcurrentDictionary<Type, PropertyInfo[]>();
-
-        public static IQueryable<TEntity> FilterBy<TEntity, TFilter>(this IQueryable<TEntity> query, TFilter filter, bool filterByRelations = false, bool useCache = false)
+        /// <summary>
+        /// Method attaches filters on queriable list
+        /// </summary>
+        /// <typeparam name="TEntity">Entity that will be filtered</typeparam>
+        /// <typeparam name="TFilter"></typeparam>
+        /// <param name="query"></param>
+        /// <param name="filter"></param>
+        /// <param name="filterByRelations">true if TEntitys relations should be filtered and filter object has class member (inner filter) with appropriate attributes, works only 1 level deep</param>
+        /// <returns>IQueryable<typeparamref name="TEntity"/>> newly attached filters</returns>
+        public static IQueryable<TEntity> FilterBy<TEntity, TFilter>(this IQueryable<TEntity> query, TFilter filter, bool filterByRelations = false)
             where TEntity : class
         {
             if (filter == null) return query;
@@ -21,7 +28,7 @@ namespace Common.Filtering
             var andList = new List<Expression<Func<TEntity, bool>>>();
 
             var parameter = Expression.Parameter(typeof(TEntity));
-            var filterProperties = GetOrCacheTypeProps(typeof(TFilter),useCache);
+            var filterProperties = typeof(TFilter).GetProperties();
 
             var properties = filterProperties.Where(x =>
                 x.PropertyType.IsPublic &&
@@ -73,9 +80,7 @@ namespace Common.Filtering
                         switch (relationType)
                         {
                             case RelationType.List:
-                                var anyMethod = typeof(Enumerable).GetMethods()
-                                                       .FirstOrDefault(m => m.Name == "Any" && m.GetParameters().Length == 2)!
-                                                       .MakeGenericMethod(innerParameterType);
+                                var anyMethod = typeof(Enumerable).GetMethods().FirstOrDefault(m => m.Name == "Any" && m.GetParameters().Length == 2)!.MakeGenericMethod(innerParameterType);
                                 var lambda = Expression.Lambda<Func<TEntity, bool>>(Expression.Call(anyMethod, innerProperty, combined), parameter);
                                 andList.Add(lambda);
                                 break;
@@ -93,7 +98,7 @@ namespace Common.Filtering
             return query;
         }
 
-        public static Expression? BuildLambda(PropertyInfo property, object filter, ParameterExpression parameter, bool checkForNullFirst = false)
+        private static Expression? BuildLambda(PropertyInfo property, object filter, ParameterExpression parameter, bool checkForNullFirst = false)
         {
             var propertyValue = property.GetValue(filter);
 
@@ -101,15 +106,21 @@ namespace Common.Filtering
 
             var attributes = property.GetCustomAttributes<FilterByAttribute>();
 
-            List<Expression> attributeExpressions = new List<Expression>();
+            var attributeExpressions = new List<Expression>();
 
             foreach (var attribute in attributes)
             {
                 var compareToColumn = attribute!.ColumnName ?? property.Name;
                 var comparisonType = attribute!.ComparisonType;
+                var convertTo = attribute.ConvertTo;
 
                 var propertyExpression = Expression.Property(parameter, compareToColumn);
                 var constantExpression = Expression.Constant(propertyValue);
+                
+                if(convertTo != null)
+                {
+                    constantExpression = Expression.Constant(propertyValue, convertTo);
+                }
 
                 var condition = GetComparisonExpression(propertyExpression, constantExpression, comparisonType, parameter);
                 var expression = checkForNullFirst ? Expression.AndAlso(Expression.NotEqual(propertyExpression, Expression.Constant(null)), condition) : condition;
@@ -117,9 +128,9 @@ namespace Common.Filtering
                 attributeExpressions.Add(expression);
             }
 
-            Expression final = attributeExpressions.First();
+            var final = attributeExpressions.First();
 
-            if (attributeExpressions.Count() > 1)
+            if (attributeExpressions.Count > 1)
             {
                 var combineWith = attributes.First()?.CombineWith;
 
@@ -136,19 +147,32 @@ namespace Common.Filtering
             return final;
         }
 
-        public static Expression GetComparisonExpression(MemberExpression propertyExpression, ConstantExpression constantExpression, CompareWith comparisonType, ParameterExpression parameter)
+        private static bool IsNullableType(Type t)
+        {
+            return t.IsGenericType && t.GetGenericTypeDefinition() == typeof(Nullable<>);
+        }
+
+        private static Expression GetComparisonExpression(MemberExpression propertyExpression, ConstantExpression constantExpression, CompareWith comparisonType, ParameterExpression parameter)
         {
             switch (comparisonType)
             {
                 case CompareWith.Equals:
                     return Expression.Equal(propertyExpression, constantExpression);
                 case CompareWith.GreaterThan:
+                    constantExpression = CastToNullablePropertyToType(constantExpression, propertyExpression);
+
                     return Expression.GreaterThan(propertyExpression, constantExpression);
                 case CompareWith.LessThan:
+                    constantExpression = CastToNullablePropertyToType(constantExpression, propertyExpression);
+
                     return Expression.LessThan(propertyExpression, constantExpression);
                 case CompareWith.GreaterThanOrEqual:
+                    constantExpression = CastToNullablePropertyToType(constantExpression, propertyExpression);
+
                     return Expression.GreaterThanOrEqual(propertyExpression, constantExpression);
                 case CompareWith.LessThanOrEqual:
+                    constantExpression = CastToNullablePropertyToType(constantExpression, propertyExpression);
+
                     return Expression.LessThanOrEqual(propertyExpression, constantExpression);
                 case CompareWith.Contains:
                     var containsMethod = typeof(string).GetMethod(nameof(string.Contains), new[] { typeof(string) }) ?? throw new Exception($"method {nameof(string.Contains)} not found");
@@ -174,18 +198,32 @@ namespace Common.Filtering
             }
         }
 
-        private static PropertyInfo[] GetOrCacheTypeProps(Type type, bool useCache)
+        public static ConstantExpression CastToNullablePropertyToType(ConstantExpression constant, MemberExpression property)
         {
-            if (useCache && _properties.ContainsKey(type))
+            var isConstantNullable = IsNullableExpression(constant);
+            var isPropNullable = IsNullableExpression(property);
+
+            if (isPropNullable && !isConstantNullable && AreSameType(property, constant))
             {
-                return _properties[type];
+                constant = Expression.Constant(constant.Value, property.Type);
             }
 
-            var properties = type.GetProperties();
+            return constant;
+        }
 
-            if (useCache) _properties.TryAdd(type, properties);
+        private static bool IsNullableExpression(Expression expression)
+        {
+            ArgumentNullException.ThrowIfNull(expression);
 
-            return properties;
+            return expression.Type.IsGenericType && expression.Type.GetGenericTypeDefinition() == typeof(Nullable<>);
+        }
+
+        private static bool AreSameType(Expression member, Expression constant)
+        {
+            ArgumentNullException.ThrowIfNull(member, nameof(member));
+            ArgumentNullException.ThrowIfNull(constant, nameof(constant));
+
+            return Nullable.GetUnderlyingType(member.Type) == constant.Type;
         }
     }
 }
