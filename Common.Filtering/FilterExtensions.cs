@@ -121,7 +121,8 @@ namespace Common.Filtering
                 {
                     try
                     {
-                        constantExpression = Expression.Constant(propertyValue, convertTo);
+                        var converted = Convert.ChangeType(propertyValue, convertTo);
+                        constantExpression = Expression.Constant(converted);
                     }
                     catch
                     {

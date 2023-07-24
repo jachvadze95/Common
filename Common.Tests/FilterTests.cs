@@ -84,24 +84,6 @@ namespace Common.Tests
         }
 
         [TestMethod]
-        public async Task FilterWithMultipleAttribute()
-        {
-            var randomNum = new Random().Next(0, 10);
-
-            var filter = new BasicFilter()
-            {
-                Keyword = randomNum.ToString()
-            };
-
-            var q = _dbContext.TestEntities.AsQueryable().FilterBy(filter);
-            var dbResults = await q.ToListAsync();
-            var result = _entities.Where(x => x.Description.Contains(filter.Keyword) || x.Name.Contains(filter.Keyword)).ToList();
-
-            Assert.AreEqual(result.Count, dbResults.Count);
-            Assert.AreEqual(result[0].Name, dbResults[0].Name);
-        }
-
-        [TestMethod]
         public async Task FilterWithNotEquals()
         {
             var name = GetRandomEntity().Name;
@@ -223,7 +205,6 @@ namespace Common.Tests
             {
                 Name = randomNum.ToString(),
                 NameNot = randomNum.ToString(),
-                Keyword = randomNum.ToString(),
                 DateFromInclusive = DateTime.Now.AddSeconds(-5),
                 DateFromExclusive = DateTime.Now.AddSeconds(-5),
                 DateToInclusive = DateTime.Now.AddSeconds(-5),
@@ -272,6 +253,28 @@ namespace Common.Tests
 
             if (result.Count > 0)
                 Assert.AreEqual(result[0].Name, dbResults[0].Name);
+
+        }
+
+        [TestMethod]
+        public async Task FilterWithMultipleAndConvert()
+        {
+            var randomNum = new Random().Next();
+            var filter = new BasicFilter()
+            {
+                Keyword = "5"
+            };
+
+            decimal.TryParse(filter.Keyword, out decimal keywordAmount);
+            var dbResults = await _dbContext.TestEntitiesItems.AsQueryable().FilterBy(filter, true).ToListAsync();
+            var result = _entities.SelectMany(x => x.TestItems).Where(x =>
+            x.Name.Contains(filter.Keyword) || x.Description.Contains(filter.Keyword) || x.Amount == keywordAmount).ToList();
+
+            Assert.AreEqual(result.Count, dbResults.Count);
+
+            if (result.Count > 0)
+                Assert.AreEqual(result[0].Name, dbResults[0].Name);
+
 
         }
 

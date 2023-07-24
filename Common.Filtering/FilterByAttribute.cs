@@ -8,7 +8,7 @@
         public CombineWith CombineWith { get; set; }
         public Type? ConvertTo { get; set; }
 
-        public FilterByAttribute(string columnName, CompareWith comparisonType, CombineWith combineWith = CombineWith.Or, Type? convertTo = null)
+        public FilterByAttribute(string columnName, CompareWith comparisonType, Type? convertTo = null, CombineWith combineWith = CombineWith.Or)
         {
             ColumnName = columnName;
             ComparisonType = comparisonType;
@@ -16,14 +16,14 @@
             ConvertTo = convertTo;
         }
 
-        public FilterByAttribute(CompareWith comparisonType, CombineWith combineWith = CombineWith.Or, Type? convertTo = null)
+        public FilterByAttribute(CompareWith comparisonType, Type? convertTo = null, CombineWith combineWith = CombineWith.Or)
         {
             ComparisonType = comparisonType;
             CombineWith = combineWith;
             ConvertTo = convertTo;
         }
 
-        public FilterByAttribute(string columnName, CombineWith combineWith = CombineWith.Or, Type? convertTo = null)   
+        public FilterByAttribute(string columnName, Type? convertTo = null, CombineWith combineWith = CombineWith.Or)   
         {
             ColumnName = columnName;
             ComparisonType = CompareWith.Equals;
@@ -31,7 +31,7 @@
             ConvertTo = convertTo;
         }
 
-        public FilterByAttribute(CombineWith combineWith = CombineWith.Or, Type? convertTo = null)
+        public FilterByAttribute(Type? convertTo = null, CombineWith combineWith = CombineWith.Or)
         {
             ComparisonType = CompareWith.Equals;
             CombineWith = combineWith;

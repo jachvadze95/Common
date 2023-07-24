@@ -20,6 +20,7 @@ namespace Common.Tests.Database
         {
             try
             {
+                await _context.Database.EnsureDeletedAsync();
                 await _context.Database.EnsureCreatedAsync(); // Create a new in-memory database
 
                 var isDbEntriesPresent = _context.TestEntities.Count();

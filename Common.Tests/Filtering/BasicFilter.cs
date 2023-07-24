@@ -58,6 +58,7 @@ namespace Common.Tests.Filtering
 
         [FilterBy("Name", CompareWith.Contains)]
         [FilterBy("Description", CompareWith.Contains)]
+        [FilterBy("Amount", CompareWith.Equals, typeof(long))]
         public string? Keyword { get; set; }
 
         [FilterRelation("TestItems", RelationType.List)]
