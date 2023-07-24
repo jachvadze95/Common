@@ -119,7 +119,15 @@ namespace Common.Filtering
                 
                 if(convertTo != null)
                 {
-                    constantExpression = Expression.Constant(propertyValue, convertTo);
+                    try
+                    {
+                        constantExpression = Expression.Constant(propertyValue, convertTo);
+                    }
+                    catch
+                    {
+                        //This case needs some kind of warrning that convertion attribute is skipped
+                        continue;
+                    }
                 }
 
                 var condition = GetComparisonExpression(propertyExpression, constantExpression, comparisonType, parameter);
