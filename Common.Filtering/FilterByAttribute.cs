@@ -5,37 +5,37 @@
     {
         public string? ColumnName { get; }
         public CompareWith ComparisonType { get; }
-        public CombineWith CombineWith { get; set; }
-        public Type? ConvertTo { get; set; }
+        public LogicalOperator CombineWith { get; set; }
+        public StringTransformer StringTransformer { get; set; }
 
-        public FilterByAttribute(string columnName, CompareWith comparisonType, Type? convertTo = null, CombineWith combineWith = CombineWith.Or)
+        public FilterByAttribute(string columnName, CompareWith comparisonType, LogicalOperator combineWith = LogicalOperator.Or, StringTransformer stringTransformer = StringTransformer.None)
         {
             ColumnName = columnName;
             ComparisonType = comparisonType;
             CombineWith = combineWith;
-            ConvertTo = convertTo;
+            StringTransformer = stringTransformer;
         }
 
-        public FilterByAttribute(CompareWith comparisonType, Type? convertTo = null, CombineWith combineWith = CombineWith.Or)
+        public FilterByAttribute(CompareWith comparisonType, LogicalOperator combineWith = LogicalOperator.Or, StringTransformer stringTransformer = StringTransformer.None)
         {
             ComparisonType = comparisonType;
             CombineWith = combineWith;
-            ConvertTo = convertTo;
+            StringTransformer= stringTransformer;
         }
 
-        public FilterByAttribute(string columnName, Type? convertTo = null, CombineWith combineWith = CombineWith.Or)   
+        public FilterByAttribute(string columnName, LogicalOperator combineWith = LogicalOperator.Or, StringTransformer stringTransformer = StringTransformer.None)   
         {
             ColumnName = columnName;
             ComparisonType = CompareWith.Equals;
             CombineWith = combineWith;
-            ConvertTo = convertTo;
+            StringTransformer = stringTransformer;
         }
 
-        public FilterByAttribute(Type? convertTo = null, CombineWith combineWith = CombineWith.Or)
+        public FilterByAttribute(LogicalOperator combineWith = LogicalOperator.Or, StringTransformer stringTransformer = StringTransformer.None)
         {
             ComparisonType = CompareWith.Equals;
             CombineWith = combineWith;
-            ConvertTo = convertTo;
+            StringTransformer = stringTransformer;
         }
     }
 }

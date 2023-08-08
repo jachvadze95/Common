@@ -9,6 +9,9 @@ using System.Reflection.Metadata;
 
 namespace Common.Filtering
 {
+    //1. Add Error Handling
+    //2. fix Relation List and add not
+    //3. Refactor Code to Smaller and simpler
     public static class FilterExtensions
     {
         /// <summary>
@@ -112,16 +115,16 @@ namespace Common.Filtering
             {
                 var compareToColumn = attribute!.ColumnName ?? property.Name;
                 var comparisonType = attribute!.ComparisonType;
-                var convertTo = attribute.ConvertTo;
+                var transformer = attribute!.StringTransformer;
 
                 var propertyExpression = Expression.Property(parameter, compareToColumn);
                 var constantExpression = Expression.Constant(propertyValue);
-                
-                if(convertTo != null)
+
+                if (transformer != StringTransformer.None)
                 {
                     try
                     {
-                        var converted = Convert.ChangeType(propertyValue, convertTo);
+                        var converted = Helpers.TransformString(propertyValue, transformer);
                         constantExpression = Expression.Constant(converted);
                     }
                     catch
@@ -143,11 +146,11 @@ namespace Common.Filtering
             {
                 var combineWith = attributes.First()?.CombineWith;
 
-                if (combineWith == CombineWith.And)
+                if (combineWith == LogicalOperator.And)
                 {
                     final = attributeExpressions.Aggregate((x, y) => Expression.AndAlso(x, y));
                 }
-                else if (combineWith == CombineWith.Or)
+                else if (combineWith == LogicalOperator.Or)
                 {
                     final = attributeExpressions.Aggregate((x, y) => Expression.OrElse(x, y));
                 }
@@ -166,6 +169,8 @@ namespace Common.Filtering
             switch (comparisonType)
             {
                 case CompareWith.Equals:
+                    constantExpression = CastToNullablePropertyToType(constantExpression, propertyExpression);
+
                     return Expression.Equal(propertyExpression, constantExpression);
                 case CompareWith.GreaterThan:
                     constantExpression = CastToNullablePropertyToType(constantExpression, propertyExpression);
@@ -209,30 +214,15 @@ namespace Common.Filtering
 
         public static ConstantExpression CastToNullablePropertyToType(ConstantExpression constant, MemberExpression property)
         {
-            var isConstantNullable = IsNullableExpression(constant);
-            var isPropNullable = IsNullableExpression(property);
+            var isConstantNullable = Helpers.IsNullableExpression(constant);
+            var isPropNullable = Helpers.IsNullableExpression(property);
 
-            if (isPropNullable && !isConstantNullable && AreSameType(property, constant))
+            if (isPropNullable && !isConstantNullable && Helpers.AreSameType(property, constant))
             {
                 constant = Expression.Constant(constant.Value, property.Type);
             }
 
             return constant;
-        }
-
-        private static bool IsNullableExpression(Expression expression)
-        {
-            ArgumentNullException.ThrowIfNull(expression);
-
-            return expression.Type.IsGenericType && expression.Type.GetGenericTypeDefinition() == typeof(Nullable<>);
-        }
-
-        private static bool AreSameType(Expression member, Expression constant)
-        {
-            ArgumentNullException.ThrowIfNull(member, nameof(member));
-            ArgumentNullException.ThrowIfNull(constant, nameof(constant));
-
-            return Nullable.GetUnderlyingType(member.Type) == constant.Type;
         }
     }
 }

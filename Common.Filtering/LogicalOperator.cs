@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Common.Filtering
 {
-    public enum CombineWith
+    public enum LogicalOperator
     {
         And,
         Or
