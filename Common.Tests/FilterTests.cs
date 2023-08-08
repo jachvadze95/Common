@@ -78,12 +78,6 @@ namespace Common.Tests
         }
 
         [TestMethod]
-        public async Task FilterWithEqualsAndRelation()
-        {
-            Assert.IsTrue(true);
-        }
-
-        [TestMethod]
         public async Task FilterWithNotEquals()
         {
             var name = GetRandomEntity().Name;
@@ -237,17 +231,15 @@ namespace Common.Tests
 
             var filter = new BasicFilter()
             {
-                Description = "4",
-
                 ListFilter = new ListFilter
                 {
                     Amount = 404,
-                    Description = "4"
+                    Description = "100"
                 }
             };
 
             var dbResults = await _dbContext.TestEntities.AsQueryable().FilterBy(filter, true).ToListAsync();
-            var result = _entities.Where(x => x.Description.Contains(filter.Description) && x.TestItems.Any(i => i.Description.Contains(filter.ListFilter.Description) && i.Amount == filter.ListFilter.Amount)).ToList();
+            var result = _entities.Where(x => x.TestItems.Any(i => i.Description.Contains(filter.ListFilter.Description) && i.Amount == filter.ListFilter.Amount)).ToList();
 
             Assert.AreEqual(result.Count, dbResults.Count);
 
@@ -278,6 +270,94 @@ namespace Common.Tests
 
         }
 
+        [TestMethod]
+        public async Task FilterWithInList()
+        {
+            var randomNum = new Random().Next(0, 10);
+
+            var filter = new BasicFilter()
+            {
+                ListFilter = new ListFilter
+                {
+                    Amount = 404,
+                    Description = "4"
+                }
+            };
+
+            var dbResults = await _dbContext.TestEntities.AsQueryable().FilterBy(filter, true).ToListAsync();
+            var result = _entities.Where(x => x.TestItems.Any(i => i.Description.Contains(filter.ListFilter.Description) && i.Amount == filter.ListFilter.Amount)).ToList();
+
+            Assert.AreEqual(result.Count, dbResults.Count);
+
+            if (result.Count > 0)
+                Assert.AreEqual(result[0].Name, dbResults[0].Name);
+        }
+
+        [TestMethod]
+        public async Task FilterWithNotInList()
+        {
+            var randomNum = new Random().Next(0, 10);
+
+            var filter = new BasicFilter()
+            {
+                ListFilterNot = new ListFilter
+                {
+                    Amount = 404,
+                }
+            };
+
+            var dbResults = await _dbContext.TestEntities.AsQueryable().FilterBy(filter, true).ToListAsync();
+            var result = _entities.Where(x => !x.TestItems.Any(i => i.Amount == filter.ListFilterNot.Amount)).ToList();
+
+            Assert.AreEqual(result.Count, dbResults.Count);
+
+            if (result.Count > 0)
+                Assert.AreEqual(result[0].Name, dbResults[0].Name);
+        }
+
+        [TestMethod]
+        public async Task FilterInClass()
+        {
+            var randomNum = new Random().Next(0, 10);
+
+            var filter = new BasicFilter()
+            {
+                DetailHas = new DetailsFilter
+                {
+                    Description = "404"
+                }
+            };
+
+            var dbResults = await _dbContext.TestEntities.AsQueryable().FilterBy(filter, true).ToListAsync();
+            var result = _entities.Where(x => x.Detail!.Description.Contains(filter.DetailHas.Description)).ToList();
+
+            Assert.AreEqual(result.Count, dbResults.Count);
+
+            if (result.Count > 0)
+                Assert.AreEqual(result[0].Name, dbResults[0].Name);
+        }
+
+        [TestMethod]
+        public async Task FilterNotInClass()
+        {
+            var randomNum = new Random().Next(0, 10);
+
+            var filter = new BasicFilter()
+            {
+                DetailHasNot = new DetailsFilter
+                {
+                    Description = "404"
+                }
+            };
+
+            var dbResults = await _dbContext.TestEntities.AsQueryable().FilterBy(filter, true).ToListAsync();
+            var result = _entities.Where(x => x.Detail!.Description != filter.DetailHasNot.Description).ToList();
+
+            Assert.AreEqual(result.Count, dbResults.Count);
+
+            if (result.Count > 0)
+                Assert.AreEqual(result[0].Name, dbResults[0].Name);
+        }
 
         private TestEntity GetRandomEntity()
         {

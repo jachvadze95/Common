@@ -27,7 +27,7 @@ namespace Common.Filtering
 
         public static object? TransformString(object value, StringTransformer transformer)
         {
-            if(value == null)
+            if (value == null)
                 return null;
 
             switch (transformer)
@@ -38,8 +38,10 @@ namespace Common.Filtering
                     return (value as string).ToLower();
                 case StringTransformer.Boolean:
                     return Convert.ChangeType(value, typeof(bool), CultureInfo.InvariantCulture);
-                case StringTransformer.Inetger:
+                case StringTransformer.Int32:
                     return Convert.ChangeType(value, typeof(int), CultureInfo.InvariantCulture);
+                case StringTransformer.Int64:
+                    return Convert.ChangeType(value, typeof(long), CultureInfo.InvariantCulture);
                 case StringTransformer.Decimal:
                     return Convert.ChangeType(value, typeof(decimal), CultureInfo.InvariantCulture);
                 default: return value;

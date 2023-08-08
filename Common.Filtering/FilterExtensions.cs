@@ -30,27 +30,22 @@ namespace Common.Filtering
 
             var andList = new List<Expression<Func<TEntity, bool>>>();
 
-            var parameter = Expression.Parameter(typeof(TEntity));
+            var mainParameter = Expression.Parameter(typeof(TEntity));
             var filterProperties = typeof(TFilter).GetProperties();
 
-            var properties = filterProperties.Where(x =>
-                x.PropertyType.IsPublic &&
-                Attribute.IsDefined(x, typeof(FilterByAttribute)));
+            var properties = filterProperties.Where(x => x.PropertyType.IsPublic && Attribute.IsDefined(x, typeof(FilterByAttribute)));
 
             foreach (var property in properties)
             {
-                var lambda = BuildLambda(property, filter, parameter);
+                var lambda = BuildLambda(property, filter, mainParameter);
                 if (lambda == null) continue;
 
-                andList.Add(Expression.Lambda<Func<TEntity, bool>>(lambda, parameter));
+                andList.Add(Expression.Lambda<Func<TEntity, bool>>(lambda, mainParameter));
             }
 
             if (filterByRelations)
             {
-                var innerRelations = filterProperties.Where(x =>
-                    x.PropertyType.IsPublic &&
-                    x.PropertyType.IsClass &&
-                    Attribute.IsDefined(x, typeof(FilterRelationAttribute)));
+                var innerRelations = filterProperties.Where(x => x.PropertyType.IsPublic && x.PropertyType.IsClass && Attribute.IsDefined(x, typeof(FilterRelationAttribute)));
 
                 foreach (var innerRelation in innerRelations)
                 {
@@ -60,11 +55,14 @@ namespace Common.Filtering
 
                     var attribute = innerRelation.GetCustomAttribute<FilterRelationAttribute>();
 
-                    var relationNames = attribute!.RelationNames;
+                    var relationName = attribute!.RelationName;
                     var relationType = attribute!.RelationType;
 
-                    var innerProperty = Expression.Property(parameter, relationNames[0]);
-                    var innerParameterType = innerProperty.Type.GenericTypeArguments[0];
+                    var innerProperty = Expression.Property(mainParameter, relationName);
+
+
+
+                    var innerParameterType = innerProperty.Type.GenericTypeArguments.Any() ? innerProperty.Type.GenericTypeArguments[0] : innerProperty.Type;
                     var innerParameter = Expression.Parameter(innerParameterType);
 
                     var innerProperties = innerRelation.PropertyType.GetProperties().Where(x => x.PropertyType.IsPublic && Attribute.IsDefined(x, typeof(FilterByAttribute)));
@@ -78,24 +76,30 @@ namespace Common.Filtering
 
                     if (relationalLambda.Any())
                     {
-                        var combined = relationalLambda.Aggregate((x, y) => Expression.Lambda(Expression.AndAlso(x, y), innerParameter));
+                        var combined = relationalLambda.Count > 1 ? relationalLambda.Aggregate((x, y) => Expression.Lambda(Expression.AndAlso(x, y), innerParameter)) : Expression.Lambda(relationalLambda[0], innerParameter);
 
                         switch (relationType)
                         {
-                            case RelationType.List:
-                                var anyMethod = typeof(Enumerable).GetMethods().FirstOrDefault(m => m.Name == "Any" && m.GetParameters().Length == 2)!.MakeGenericMethod(innerParameterType);
-                                var lambda = Expression.Lambda<Func<TEntity, bool>>(Expression.Call(anyMethod, innerProperty, combined), parameter);
+                            case RelationType.InList:
+                                var anyMethod = typeof(Enumerable).GetMethods(BindingFlags.Static | BindingFlags.Public).First(m => m.Name == "Any" && m.GetParameters().Count() == 2).MakeGenericMethod(innerParameterType);
+                                var lambda = Expression.Lambda<Func<TEntity, bool>>(Expression.Call(anyMethod, innerProperty, combined), mainParameter);
                                 andList.Add(lambda);
                                 break;
-                            case RelationType.Class:
-                                andList.Add(Expression.Lambda<Func<TEntity, bool>>(Expression.Equal(innerProperty, combined), parameter));
+                            case RelationType.NotInList:
+                                var notAnyMethod = typeof(Enumerable).GetMethods(BindingFlags.Static | BindingFlags.Public).First(m => m.Name == "Any" && m.GetParameters().Count() == 2).MakeGenericMethod(innerParameterType);
+                                var notLambda = Expression.Lambda<Func<TEntity, bool>>(Expression.Not(Expression.Call(notAnyMethod, innerProperty, combined)), mainParameter);
+                                andList.Add(notLambda);
                                 break;
+                            case RelationType.InClass:
+                                throw new NotImplementedException();
+                            case RelationType.NotInClass:
+                                throw new NotImplementedException();
                         }
                     }
                 }
             }
 
-            var clause = andList.Aggregate((x, y) => Expression.Lambda<Func<TEntity, bool>>(Expression.AndAlso(x.Body, y.Body), parameter));
+            var clause = andList.Aggregate((x, y) => Expression.Lambda<Func<TEntity, bool>>(Expression.AndAlso(x.Body, y.Body), mainParameter));
             query = query.Where(clause);
 
             return query;

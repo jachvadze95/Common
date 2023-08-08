@@ -12,7 +12,8 @@ namespace Common.Filtering
         UpperCase,
         LowerCase,
         Decimal,
-        Inetger,
+        Int64,
+        Int32,
         Boolean
     }
 }

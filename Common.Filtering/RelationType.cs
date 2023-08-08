@@ -8,7 +8,9 @@ namespace Common.Filtering
 {
     public enum RelationType
     {
-        Class,
-        List
+        InClass,
+        NotInClass,
+        InList,
+        NotInList
     }
 }

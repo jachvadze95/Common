@@ -1,11 +1,4 @@
-﻿using Common.Filtering;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Common.Tests.Filtering
+﻿namespace Common.Tests.Filtering
 {
     public class BasicFilter
     {
@@ -58,11 +51,20 @@ namespace Common.Tests.Filtering
 
         [FilterBy("Name", CompareWith.Contains)]
         [FilterBy("Description", CompareWith.Contains)]
-        [FilterBy("Amount", CompareWith.Equals, stringTransformer: StringTransformer.Decimal)]
+        [FilterBy("Amount", CompareWith.Equals, stringTransformer: StringTransformer.Int64)]
         public string? Keyword { get; set; }
 
-        [FilterRelation("TestItems", RelationType.List)]
+        [FilterRelation("TestItems", RelationType.InList)]
         public ListFilter? ListFilter { get; set; }
+
+        [FilterRelation("TestItems", RelationType.NotInList)]
+        public ListFilter? ListFilterNot { get; set; }
+
+        [FilterRelation("Detail", RelationType.InClass)]
+        public DetailsFilter? DetailHas { get; set; }
+
+        [FilterRelation("Detail", RelationType.NotInClass)]
+        public DetailsFilter? DetailHasNot { get; set; }
     }
 
     public class ListFilter
@@ -72,5 +74,11 @@ namespace Common.Tests.Filtering
 
         [FilterBy]
         public long? Amount { get; set; }
+    }
+
+    public class DetailsFilter
+    {
+        [FilterBy(CompareWith.Contains)]
+        public string? Description { get; set; }
     }
 }
