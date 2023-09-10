@@ -17,14 +17,6 @@ namespace Common.Filtering
             return expression.Type.IsGenericType && expression.Type.GetGenericTypeDefinition() == typeof(Nullable<>);
         }
 
-        public static bool TypeEqualsWithNullable(this Expression left, Expression right)
-        {
-            ArgumentNullException.ThrowIfNull(left, nameof(left));
-            ArgumentNullException.ThrowIfNull(right, nameof(right));
-
-            return Nullable.GetUnderlyingType(left.Type) == right.Type;
-        }
-
         public static Expression ApplyTransformers(this Expression expresion, StringTransformer transformer)
         {
             if (transformer != StringTransformer.None)

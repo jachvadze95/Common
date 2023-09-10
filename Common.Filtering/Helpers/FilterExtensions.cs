@@ -11,16 +11,7 @@ namespace Common.Filtering.Helpers
 {
     public static class FilterExtensions
     {
-        /// <summary>
-        /// Method attaches filters on queriable list
-        /// </summary>
-        /// <typeparam name="TEntity">Entity that will be filtered</typeparam>
-        /// <typeparam name="TFilter"></typeparam>
-        /// <param name="query"></param>
-        /// <param name="filter"></param>
-        /// <param name="filterByRelations">true if TEntitys relations should be filtered and filter object has class member (inner filter) with appropriate attributes, works only 1 level deep</param>
-        /// <returns>IQueryable<typeparamref name="TEntity"/>> newly attached filters</returns>
-        public static IQueryable<TEntity> FilterBy<TEntity, TFilter>(this IQueryable<TEntity> query, TFilter filter, bool filterByRelations = false)
+        public static IQueryable<TEntity> FilterBy<TEntity, TFilter>(this IQueryable<TEntity> query, TFilter filter)
             where TEntity : class
         {
             if (filter == null) return query;
