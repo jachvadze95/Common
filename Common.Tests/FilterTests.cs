@@ -1,3 +1,4 @@
+using Common.Filtering.Helpers;
 using Common.Tests.Database;
 using Common.Tests.Filtering;
 using Microsoft.EntityFrameworkCore;

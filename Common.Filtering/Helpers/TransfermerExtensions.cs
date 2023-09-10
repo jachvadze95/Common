@@ -8,23 +8,8 @@ using System.Threading.Tasks;
 
 namespace Common.Filtering
 {
-    internal static class Helpers
+    internal static class TransfermerExtensions
     {
-        public static bool IsNullableExpression(Expression expression)
-        {
-            ArgumentNullException.ThrowIfNull(expression);
-
-            return expression.Type.IsGenericType && expression.Type.GetGenericTypeDefinition() == typeof(Nullable<>);
-        }
-
-        public static bool AreSameType(Expression member, Expression constant)
-        {
-            ArgumentNullException.ThrowIfNull(member, nameof(member));
-            ArgumentNullException.ThrowIfNull(constant, nameof(constant));
-
-            return Nullable.GetUnderlyingType(member.Type) == constant.Type;
-        }
-
         public static object? TransformString(object value, StringTransformer transformer)
         {
             if (value == null)
