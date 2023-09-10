@@ -34,7 +34,7 @@ namespace Common.Filtering.Helpers
                 var val = property.GetValue(filter);
                 if (val == null) continue;
 
-                var lambda = BuildLambdaFromAttributes(property, filter, mainParameter);
+                var lambda = ExpressionExtensions.BuildLambdaFromAttributes(property, filter, mainParameter);
                 if (lambda == null) continue;
 
                 andList.Add(Expression.Lambda<Func<TEntity, bool>>(lambda, mainParameter));
@@ -45,50 +45,6 @@ namespace Common.Filtering.Helpers
 
             return query;
         }
-
-        private static Expression? BuildLambdaFromAttributes<TFilter>(PropertyInfo property, TFilter filter, ParameterExpression parameter)
-        {
-            var attributes = property.GetCustomAttributes<FilterByAttribute>();
-
-            var attributeExpressions = new List<Expression>();
-
-            foreach (var attribute in attributes)
-            {
-                var compareToColumn = attribute!.ColumnName ?? property.Name;
-                var comparisonType = attribute!.ComparisonType;
-                var transformer = attribute!.StringTransformer;
-
-                var left = Expression.Property(parameter, compareToColumn);
-                Expression right = Expression.Property(Expression.Constant(filter), property).ApplyTransformers(transformer);
-
-                if (comparisonType != CompareWith.In && !left.IsNullableType()){
-                    right = Expression.Convert(right, left.Type);
-                }
-
-                var attributeExpression = ExpressionExtensions.GetComparisonExpression(left, right, comparisonType);
-                attributeExpressions.Add(attributeExpression);
-            }
-
-            var final = attributeExpressions.First();
-
-            // if there are more than one attribute, combine them with logical operator
-            if (attributeExpressions.Count > 1)
-            {
-                var combineWith = attributes.First()?.CombineWith;
-
-                if (combineWith == LogicalOperator.And)
-                {
-                    final = attributeExpressions.Aggregate((x, y) => Expression.AndAlso(x, y));
-                }
-                else if (combineWith == LogicalOperator.Or)
-                {
-                    final = attributeExpressions.Aggregate((x, y) => Expression.OrElse(x, y));
-                }
-            }
-
-            return final;
-        }
-
 
         private static PropertyInfo[] GetOrCacheTypeProps(Type type)
         {

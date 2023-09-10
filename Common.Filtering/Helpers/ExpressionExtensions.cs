@@ -4,21 +4,22 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace Common.Filtering
 {
-    public static class ExpressionExtensions
+    internal static class ExpressionExtensions
     {
-        public static bool IsNullableType(this Expression expression)
+        internal static bool IsNullableType(this Expression expression)
         {
             ArgumentNullException.ThrowIfNull(expression);
 
             return expression.Type.IsGenericType && expression.Type.GetGenericTypeDefinition() == typeof(Nullable<>);
         }
 
-        public static Expression ApplyTransformers(this Expression expresion, StringTransformer transformer)
+        internal static Expression ApplyTransformers(this Expression expresion, StringTransformer transformer)
         {
             if (transformer != StringTransformer.None)
             {
@@ -55,7 +56,7 @@ namespace Common.Filtering
             return expresion;
         }
 
-        public static Expression GetComparisonExpression(MemberExpression left, Expression right, CompareWith comparisonType)
+        internal static Expression GetComparisonExpression(MemberExpression left, Expression right, CompareWith comparisonType)
         {
             switch (comparisonType)
             {
@@ -85,5 +86,50 @@ namespace Common.Filtering
                     throw new NotSupportedException();
             }
         }
+
+        internal static Expression? BuildLambdaFromAttributes<TFilter>(PropertyInfo property, TFilter filter, ParameterExpression parameter)
+        {
+            var attributes = property.GetCustomAttributes<FilterByAttribute>();
+
+            var attributeExpressions = new List<Expression>();
+
+            foreach (var attribute in attributes)
+            {
+                var compareToColumn = attribute!.ColumnName ?? property.Name;
+                var comparisonType = attribute!.ComparisonType;
+                var transformer = attribute!.StringTransformer;
+
+                var left = Expression.Property(parameter, compareToColumn);
+                Expression right = Expression.Property(Expression.Constant(filter), property).ApplyTransformers(transformer);
+
+                if (comparisonType != CompareWith.In && !left.IsNullableType())
+                {
+                    right = Expression.Convert(right, left.Type);
+                }
+
+                var attributeExpression = ExpressionExtensions.GetComparisonExpression(left, right, comparisonType);
+                attributeExpressions.Add(attributeExpression);
+            }
+
+            var final = attributeExpressions.First();
+
+            // if there are more than one attribute, combine them with logical operator
+            if (attributeExpressions.Count > 1)
+            {
+                var combineWith = attributes.First()?.CombineWith;
+
+                if (combineWith == LogicalOperator.And)
+                {
+                    final = attributeExpressions.Aggregate((x, y) => Expression.AndAlso(x, y));
+                }
+                else if (combineWith == LogicalOperator.Or)
+                {
+                    final = attributeExpressions.Aggregate((x, y) => Expression.OrElse(x, y));
+                }
+            }
+
+            return final;
+        }
+
     }
 }

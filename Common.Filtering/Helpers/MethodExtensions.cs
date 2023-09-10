@@ -52,11 +52,11 @@ namespace Common.Filtering.Helpers
             return GetOrCacheMethod(name, type);
         }
 
-        public static MethodInfo GetEnumerableContainsGeneric(Type type)
+        public static MethodInfo GetEnumerableContainsGeneric(Type itemType)
         {
             var name = nameof(Enumerable.Contains);
             var methodOnType = typeof(Enumerable);
-            return GetOrCacheMethod(name, methodOnType, () => methodOnType.GetMethods().Where(x => x.Name == name).SingleOrDefault(x => x.GetParameters().Length == 2)?.MakeGenericMethod(type));
+            return GetOrCacheMethod(name, methodOnType, () => methodOnType.GetMethods().Where(x => x.Name == name).SingleOrDefault(x => x.GetParameters().Length == 2)?.MakeGenericMethod(itemType));
         }
 
         public static MethodInfo GetLongParse()
