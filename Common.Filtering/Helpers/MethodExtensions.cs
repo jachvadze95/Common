@@ -55,7 +55,8 @@ namespace Common.Filtering.Helpers
         public static MethodInfo GetEnumerableContainsGeneric(Type type)
         {
             var name = nameof(Enumerable.Contains);
-            return GetOrCacheMethod(name, () => typeof(Enumerable).GetMethods().Where(x => x.Name == name).FirstOrDefault(m => m.GetParameters().Length == 2)?.MakeGenericMethod(type));
+            var methodOnType = typeof(Enumerable);
+            return GetOrCacheMethod(name, methodOnType, () => methodOnType.GetMethods().Where(x => x.Name == name).SingleOrDefault(x => x.GetParameters().Length == 2)?.MakeGenericMethod(type));
         }
 
         public static MethodInfo GetLongParse()
@@ -92,11 +93,13 @@ namespace Common.Filtering.Helpers
         {
             paramType ??= type;
 
-            return GetOrCacheMethod(name, () => type.GetMethod(nameof(name), new Type[] { paramType }));
+            return GetOrCacheMethod(name, type, () => type.GetMethod(name, new Type[] { paramType }));
         }
 
-        private static MethodInfo GetOrCacheMethod(string name, Func<MethodInfo?> getMethod)
+        private static MethodInfo GetOrCacheMethod(string name, Type type, Func<MethodInfo?> getMethod)
         {
+            name = type.Name + name;
+
             if (_methods.ContainsKey(name))
             {
                 return _methods[name];

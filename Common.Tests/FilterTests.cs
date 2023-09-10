@@ -235,7 +235,7 @@ namespace Common.Tests
             };
 
             decimal.TryParse(filter.Keyword, out decimal keywordAmount);
-            var dbResults = await _dbContext.TestEntitiesItems.AsQueryable().FilterBy(filter, true).ToListAsync();
+            var dbResults = await _dbContext.TestEntitiesItems.AsQueryable().FilterBy(filter).ToListAsync();
             var result = _entities.SelectMany(x => x.TestItems).Where(x =>
             x.Name.Contains(filter.Keyword) || x.Description.Contains(filter.Keyword) || x.Amount == keywordAmount).ToList();
 

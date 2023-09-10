@@ -7,6 +7,7 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Reflection.Metadata;
 using System.Runtime.CompilerServices;
+using Common.Filtering.Enums;
 
 namespace Common.Filtering.Helpers
 {
