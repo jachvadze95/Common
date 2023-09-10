@@ -6,11 +6,15 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Reflection.Metadata;
+using System.Runtime.CompilerServices;
 
 namespace Common.Filtering.Helpers
 {
     public static class FilterExtensions
     {
+        private readonly static ConcurrentDictionary<Type, PropertyInfo[]> _properties = new ConcurrentDictionary<Type, PropertyInfo[]>();
+
+
         public static IQueryable<TEntity> FilterBy<TEntity, TFilter>(this IQueryable<TEntity> query, TFilter filter)
             where TEntity : class
         {
@@ -21,7 +25,7 @@ namespace Common.Filtering.Helpers
             var mainParameter = Expression.Parameter(typeof(TEntity));
 
 
-            var filterProperties = typeof(TFilter).GetProperties();
+            var filterProperties = GetOrCacheTypeProps(typeof(TFilter));
             var properties = filterProperties.Where(x => x.PropertyType.IsPublic && Attribute.IsDefined(x, typeof(FilterByAttribute)));
 
             foreach (var property in properties)
@@ -82,6 +86,21 @@ namespace Common.Filtering.Helpers
             }
 
             return final;
+        }
+
+
+        private static PropertyInfo[] GetOrCacheTypeProps(Type type)
+        {
+            if (_properties.ContainsKey(type))
+            {
+                return _properties[type];
+            }
+
+            var properties = type.GetProperties();
+
+            _properties.TryAdd(type, properties);
+
+            return properties;
         }
     }
 }

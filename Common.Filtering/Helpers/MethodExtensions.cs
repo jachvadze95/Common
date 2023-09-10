@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -9,55 +10,104 @@ namespace Common.Filtering.Helpers
 {
     public static class MethodExtensions
     {
+        private readonly static ConcurrentDictionary<string, MethodInfo> _methods = new ConcurrentDictionary<string, MethodInfo>();
+
         public static MethodInfo GetStringToLower()
         {
-            return typeof(string).GetMethod(nameof(string.ToLower), new Type[] { }) ?? throw new Exception($"method {nameof(string.ToLower)} not found");
+            var name = nameof(string.ToLower);
+            var type = typeof(string);
+
+            return GetOrCacheMethod(name, type);
         }
 
         public static MethodInfo GetStringToUpper()
         {
-            return typeof(string).GetMethod(nameof(string.ToUpper), new Type[] { }) ?? throw new Exception($"method {nameof(string.ToLower)} not found");
+            var name = nameof(string.ToUpper);
+            var type = typeof(string);
+
+            return GetOrCacheMethod(name, type);
         }
 
         public static MethodInfo GetStringContains()
         {
-            return typeof(string).GetMethod(nameof(string.Contains), new Type[] { typeof(string) }) ?? throw new Exception($"method {nameof(string.Contains)} not found");
+            var name = nameof(string.Contains);
+            var type = typeof(string);
+
+            return GetOrCacheMethod(name, type);
         }
 
         public static MethodInfo GetStringEndsWith()
         {
-            return typeof(string).GetMethod(nameof(string.EndsWith), new Type[] { typeof(string) }) ?? throw new Exception($"method {nameof(string.EndsWith)} not found");
+            var name = nameof(string.EndsWith);
+            var type = typeof(string);
+
+            return GetOrCacheMethod(name, type);
         }
 
         public static MethodInfo GetStringStartsWith()
         {
-            return typeof(string).GetMethod(nameof(string.StartsWith), new Type[] { typeof(string) }) ?? throw new Exception($"method {nameof(string.StartsWith)} not found");
+            var name = nameof(string.StartsWith);
+            var type = typeof(string);
+
+            return GetOrCacheMethod(name, type);
         }
 
         public static MethodInfo GetEnumerableContainsGeneric(Type type)
         {
-            
-            return typeof(Enumerable).GetMethods().Where(x => x.Name == "Contains").FirstOrDefault(m => m.GetParameters().Length == 2)?.MakeGenericMethod(type) ?? throw new Exception($"method {nameof(Enumerable.Contains)} not found");
+            var name = nameof(Enumerable.Contains);
+            return GetOrCacheMethod(name, () => typeof(Enumerable).GetMethods().Where(x => x.Name == name).FirstOrDefault(m => m.GetParameters().Length == 2)?.MakeGenericMethod(type));
         }
 
         public static MethodInfo GetLongParse()
         {
-            return typeof(long).GetMethod(nameof(long.Parse), new Type[] { typeof(string) }) ?? throw new Exception($"method {nameof(long.Parse)} not found");
+            var name = nameof(long.Parse);
+            var type = typeof(long);
+            return GetOrCacheMethod(name, type, typeof(string));
         }
 
         public static MethodInfo GetIntParse()
         {
-            return typeof(int).GetMethod(nameof(int.Parse), new Type[] { typeof(string) }) ?? throw new Exception($"method {nameof(int.Parse)} not found");
+            var name = nameof(int.Parse);
+            var type = typeof(int);
+            return GetOrCacheMethod(name, type, typeof(string));
         }
 
         public static MethodInfo GetBoolParse()
         {
-            return typeof(bool).GetMethod(nameof(bool.Parse), new Type[] { typeof(string) }) ?? throw new Exception($"method {nameof(bool.Parse)} not found");
+            var name = nameof(bool.Parse);
+            var type = typeof(bool);
+            return GetOrCacheMethod(name, type, typeof(string));
         }
 
         public static MethodInfo GetDecimalParse()
         {
-            return typeof(decimal).GetMethod(nameof(decimal.Parse), new Type[] { typeof(string) }) ?? throw new Exception($"method {nameof(decimal.Parse)} not found");
+            var name = nameof(decimal.Parse);
+            var type = typeof(decimal);
+            return GetOrCacheMethod(name, type, typeof(string));
+        }
+
+
+        //Private methods
+        private static MethodInfo GetOrCacheMethod(string name, Type type, Type? paramType = null)
+        {
+            paramType ??= type;
+
+            return GetOrCacheMethod(name, () => type.GetMethod(nameof(name), new Type[] { paramType }));
+        }
+
+        private static MethodInfo GetOrCacheMethod(string name, Func<MethodInfo?> getMethod)
+        {
+            if (_methods.ContainsKey(name))
+            {
+                return _methods[name];
+            }
+
+            var method = getMethod();
+
+            if (method == null) throw new Exception($"method {name} not found");
+
+            _methods.TryAdd(name, method);
+            return method;
         }
     }
 }

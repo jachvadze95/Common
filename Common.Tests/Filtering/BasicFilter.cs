@@ -1,4 +1,6 @@
-﻿namespace Common.Tests.Filtering
+﻿using Common.Filtering.Enums;
+
+namespace Common.Tests.Filtering
 {
     public class BasicFilter
     {

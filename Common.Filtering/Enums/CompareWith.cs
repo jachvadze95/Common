@@ -1,4 +1,4 @@
-﻿namespace Common.Filtering
+﻿namespace Common.Filtering.Enums
 {
     public enum CompareWith
     {

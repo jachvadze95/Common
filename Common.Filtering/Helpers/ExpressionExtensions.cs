@@ -1,4 +1,5 @@
-﻿using Common.Filtering.Helpers;
+﻿using Common.Filtering.Enums;
+using Common.Filtering.Helpers;
 using System;
 using System.Collections.Generic;
 using System.Linq;

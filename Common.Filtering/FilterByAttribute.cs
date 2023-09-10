@@ -1,4 +1,6 @@
-﻿namespace Common.Filtering
+﻿using Common.Filtering.Enums;
+
+namespace Common.Filtering
 {
     [AttributeUsage(AttributeTargets.Property, AllowMultiple = true)]
     public class FilterByAttribute : Attribute
