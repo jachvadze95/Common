@@ -63,13 +63,11 @@ namespace Common.Filtering.Helpers
                 var transformer = attribute!.StringTransformer;
 
                 var left = Expression.Property(parameter, compareToColumn);
-                Expression right = Expression.Property(Expression.Constant(filter), property);
+                Expression right = Expression.Property(Expression.Constant(filter), property).ApplyTransformers(transformer);
 
-                if (!left.IsNullableType()){
+                if (comparisonType != CompareWith.In && !left.IsNullableType()){
                     right = Expression.Convert(right, left.Type);
                 }
-
-                right.ApplyTransformers(transformer);
 
                 var attributeExpression = ExpressionExtensions.GetComparisonExpression(left, right, comparisonType);
                 attributeExpressions.Add(attributeExpression);

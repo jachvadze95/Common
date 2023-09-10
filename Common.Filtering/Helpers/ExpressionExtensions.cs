@@ -17,15 +17,15 @@ namespace Common.Filtering
             return expression.Type.IsGenericType && expression.Type.GetGenericTypeDefinition() == typeof(Nullable<>);
         }
 
-        public static bool AreSameType(Expression member, Expression constant)
+        public static bool TypeEqualsWithNullable(this Expression left, Expression right)
         {
-            ArgumentNullException.ThrowIfNull(member, nameof(member));
-            ArgumentNullException.ThrowIfNull(constant, nameof(constant));
+            ArgumentNullException.ThrowIfNull(left, nameof(left));
+            ArgumentNullException.ThrowIfNull(right, nameof(right));
 
-            return Nullable.GetUnderlyingType(member.Type) == constant.Type;
+            return Nullable.GetUnderlyingType(left.Type) == right.Type;
         }
 
-        public static void ApplyTransformers(this Expression expresion, StringTransformer transformer)
+        public static Expression ApplyTransformers(this Expression expresion, StringTransformer transformer)
         {
             if (transformer != StringTransformer.None)
             {
@@ -40,16 +40,16 @@ namespace Common.Filtering
                             expresion = Expression.Call(expresion, MethodExtensions.GetStringToUpper());
                             break;
                         case StringTransformer.Boolean:
-                            expresion = Expression.Convert(expresion, typeof(bool));
+                            expresion = Expression.Convert(expresion, typeof(bool), MethodExtensions.GetBoolParse());
                             break;
                         case StringTransformer.Int32:
-                            expresion = Expression.Convert(expresion, typeof(int));
+                            expresion = Expression.Convert(expresion, typeof(int), MethodExtensions.GetIntParse());
                             break;
                         case StringTransformer.Int64:
-                            expresion = Expression.Convert(expresion, typeof(long));
+                            expresion = Expression.Convert(expresion, typeof(long), MethodExtensions.GetLongParse());
                             break;
                         case StringTransformer.Decimal:
-                            expresion = Expression.Convert(expresion, typeof(decimal));
+                            expresion = Expression.Convert(expresion, typeof(decimal), MethodExtensions.GetDecimalParse());
                             break;
                     }
                 }
@@ -58,6 +58,8 @@ namespace Common.Filtering
                     Console.WriteLine("Error applying transformer");
                 }
             }
+
+            return expresion;
         }
 
         public static Expression GetComparisonExpression(MemberExpression left, Expression right, CompareWith comparisonType)
@@ -85,9 +87,7 @@ namespace Common.Filtering
                 case CompareWith.IsNull:
                     return Expression.Equal(left, Expression.Constant(null));
                 case CompareWith.In:
-                    var type = left.Type;
-
-                    return Expression.Call(MethodExtensions.GetEnumerableContainsGeneric(type), right, left);
+                    return Expression.Call(MethodExtensions.GetEnumerableContainsGeneric(left.Type), right, left);
                 default:
                     throw new NotSupportedException();
             }

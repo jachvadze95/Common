@@ -36,7 +36,28 @@ namespace Common.Filtering.Helpers
 
         public static MethodInfo GetEnumerableContainsGeneric(Type type)
         {
-            return typeof(Enumerable).GetMethods().FirstOrDefault(m => m.Name == nameof(Enumerable.Contains))?.MakeGenericMethod(type) ?? throw new Exception($"method {nameof(Enumerable.Contains)} not found");
+            
+            return typeof(Enumerable).GetMethods().Where(x => x.Name == "Contains").FirstOrDefault(m => m.GetParameters().Length == 2)?.MakeGenericMethod(type) ?? throw new Exception($"method {nameof(Enumerable.Contains)} not found");
+        }
+
+        public static MethodInfo GetLongParse()
+        {
+            return typeof(long).GetMethod(nameof(long.Parse), new Type[] { typeof(string) }) ?? throw new Exception($"method {nameof(long.Parse)} not found");
+        }
+
+        public static MethodInfo GetIntParse()
+        {
+            return typeof(int).GetMethod(nameof(int.Parse), new Type[] { typeof(string) }) ?? throw new Exception($"method {nameof(int.Parse)} not found");
+        }
+
+        public static MethodInfo GetBoolParse()
+        {
+            return typeof(bool).GetMethod(nameof(bool.Parse), new Type[] { typeof(string) }) ?? throw new Exception($"method {nameof(bool.Parse)} not found");
+        }
+
+        public static MethodInfo GetDecimalParse()
+        {
+            return typeof(decimal).GetMethod(nameof(decimal.Parse), new Type[] { typeof(string) }) ?? throw new Exception($"method {nameof(decimal.Parse)} not found");
         }
     }
 }

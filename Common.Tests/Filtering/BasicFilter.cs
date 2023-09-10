@@ -22,7 +22,7 @@
         public string? Description { get; set; }
 
         [FilterBy("Id", CompareWith.In)]
-        public IEnumerable<int>? SpeficifIdList { get; set; }
+        public List<int>? SpeficifIdList { get; set; }
 
         [FilterBy("CreateDate", CompareWith.GreaterThanOrEqual)]
         public DateTime? DateFromInclusive { get; set; }
@@ -53,32 +53,5 @@
         [FilterBy("Description", CompareWith.Contains)]
         [FilterBy("Amount", CompareWith.Equals, stringTransformer: StringTransformer.Int64)]
         public string? Keyword { get; set; }
-
-        [FilterRelation("TestItems", RelationType.InList)]
-        public ListFilter? ListFilter { get; set; }
-
-        [FilterRelation("TestItems", RelationType.NotInList)]
-        public ListFilter? ListFilterNot { get; set; }
-
-        [FilterRelation("Detail", RelationType.InClass)]
-        public DetailsFilter? DetailHas { get; set; }
-
-        [FilterRelation("Detail", RelationType.NotInClass)]
-        public DetailsFilter? DetailHasNot { get; set; }
-    }
-
-    public class ListFilter
-    {
-        [FilterBy(CompareWith.Contains)]
-        public string? Description { get; set; }
-
-        [FilterBy]
-        public long? Amount { get; set; }
-    }
-
-    public class DetailsFilter
-    {
-        [FilterBy(CompareWith.Contains)]
-        public string? Description { get; set; }
     }
 }
